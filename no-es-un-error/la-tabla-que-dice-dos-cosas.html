@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La tabla que dice dos cosas — Simpson, los vectores y el dato que no está en los números</title>
+<style>
+:root{
+  --bg:#faf7f2; --ink:#1e1c1a; --dim:#6a635c; --line:#d9d1c6;
+  --card:#fffdf9; --accent:#b5462f; --accent2:#2f6b7a; --ok:#2f7a4a; --warn:#b07d15;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 8px 24px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#15171a; --ink:#e9e5df; --dim:#9b948c; --line:#2e3238;
+    --card:#1b1e22; --accent:#e8795c; --accent2:#6fc0d4; --ok:#68c48c; --warn:#e0b24e;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3);}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.6 ui-serif,Georgia,"Iowan Old Style",serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:32px 20px 80px}
+h1{font-size:clamp(26px,5vw,40px);line-height:1.15;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:clamp(19px,3vw,24px);margin:48px 0 4px;letter-spacing:-.01em}
+h3{font-size:15px;margin:22px 0 6px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
+.sub{color:var(--dim);font-style:italic;margin:0 0 28px}
+p{margin:10px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin:16px 0;box-shadow:var(--shadow)}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13.5px}
+.small{font-size:14px;color:var(--dim)}
+.hero{border-left:3px solid var(--accent);padding-left:14px;margin:18px 0}
+button{font:inherit;font-size:14px;background:var(--card);color:var(--ink);border:1px solid var(--line);
+  border-radius:8px;padding:7px 12px;cursor:pointer;transition:.12s}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+button.on:hover{color:#fff;opacity:.9}
+button:disabled{opacity:.45;cursor:default}
+button:disabled:hover{border-color:var(--line);color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+label.knob{display:block;margin:12px 0 2px;font-size:13.5px;color:var(--dim)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+th,td{text-align:right;padding:4px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+tr.tot td{border-top:2px solid var(--line);font-weight:700}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.big{font-size:clamp(24px,6vw,42px);font-family:ui-monospace,Menlo,monospace;letter-spacing:-.03em;line-height:1.15}
+.pass{color:var(--ok)} .fail{color:var(--accent);font-weight:700}
+.A{color:var(--accent);font-weight:700} .B{color:var(--accent2);font-weight:700}
+svg{display:block;max-width:100%;height:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid4{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.grid2,.grid4{grid-template-columns:1fr}}
+.fn{font-size:13.5px;color:var(--dim);border-top:1px solid var(--line);padding-top:14px;margin-top:36px}
+.fn ol{padding-left:20px;margin:8px 0}
+.fn li{margin:6px 0}
+a{color:var(--accent2)}
+.badge{display:inline-block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+  padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--dim);vertical-align:middle}
+canvas{width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.verdict{font-family:ui-monospace,Menlo,monospace;font-size:15px;padding:10px 12px;border-radius:8px;
+  border:1px solid var(--line);margin:12px 0}
+.verdict.rev{border-color:var(--accent);color:var(--accent)}
+.verdict.norev{border-color:var(--line);color:var(--dim)}
+.mini{font-size:12.5px;color:var(--dim);font-family:ui-monospace,Menlo,monospace}
+.sw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:baseline;margin-right:4px}
+.dagbox{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+@media(max-width:640px){.dagbox{grid-template-columns:1fr}}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;
+  border:1px solid var(--line);font-family:ui-monospace,Menlo,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>La tabla que dice dos cosas</h1>
+<p class="sub">Un tratamiento gana en los pacientes graves, gana en los pacientes leves, y pierde en el total. No hay error de cálculo. Un aparato para producir la inversión con la mano, ver de dónde sale, y llegar al lugar donde el aparato no puede ayudarte.</p>
+
+<div class="hero">
+<p>En 1986 se compararon dos maneras de sacar cálculos renales: cirugía abierta (<span class="A">A</span>) y nefrolitotomía percutánea (<span class="B">B</span>). Sobre 350 pacientes cada una:</p>
+<p><span class="A">A</span> funcionó en el <strong>93 %</strong> de las piedras chicas. <span class="B">B</span>, en el <strong>87 %</strong>.<br>
+<span class="A">A</span> funcionó en el <strong>73 %</strong> de las piedras grandes. <span class="B">B</span>, en el <strong>69 %</strong>.<br>
+Sobre el total: <span class="A">A</span> <strong>78 %</strong>, <span class="B">B</span> <strong>83 %</strong>.</p>
+<p><strong>B pierde las dos veces y gana el partido.</strong> Los seis números son correctos y suman exactamente lo que dicen sumar.<sup>1</sup></p>
+</div>
+
+<p>Esto se llama <strong>paradoja de Simpson</strong> y de paradoja no tiene nada: es una propiedad ordinaria de la división que se nos hace rara porque leemos las tasas como si fueran cantidades. La primera parte de este aparato muestra por qué pasa, en una sola imagen. La segunda muestra qué hace falta para que pase, con la cuenta exacta. La tercera es la única que importa, y es la que no tiene perilla.</p>
+
+<h2>1 · Una tasa es una pendiente</h2>
+<p>Escribí cada grupo de pacientes como una flecha: caminás hacia la derecha una unidad por cada paciente tratado, y hacia arriba una unidad por cada éxito. La <em>inclinación</em> de la flecha es la tasa de éxito. Un tratamiento entero es la suma de sus flechas, puestas una atrás de la otra.</p>
+<p>Y acá está todo el asunto: <strong>la pendiente de una suma de flechas no es la suma de las pendientes.</strong> Depende de cuánto mide cada una. Dos flechas más empinadas que sus rivales pueden terminar más abajo si son cortas donde la rival es larga.<sup>2</sup></p>
+
+<div class="card">
+  <canvas id="vec" height="420" aria-label="Dos caminos de flechas: cada tramo es un estrato, la pendiente es la tasa"></canvas>
+  <div class="row" style="margin-top:12px">
+    <button id="btnRev">Buscarme una inversión</button>
+    <button id="btnBal">Igualar el reparto</button>
+    <button id="btnStones">Cargar el caso de las piedras</button>
+  </div>
+  <div id="verdict" class="verdict norev">—</div>
+
+  <div class="grid4" style="margin-top:6px">
+    <div>
+      <h3><span class="sw" style="background:var(--accent)"></span>Tratamiento A — casos leves</h3>
+      <label class="knob">pacientes: <b id="nA1v" class="mono"></b></label>
+      <input type="range" id="nA1" min="10" max="600" step="1" value="87">
+      <label class="knob">tasa de éxito: <b id="pA1v" class="mono"></b></label>
+      <input type="range" id="pA1" min="0" max="100" step="1" value="93">
+    </div>
+    <div>
+      <h3><span class="sw" style="background:var(--accent2)"></span>Tratamiento B — casos leves</h3>
+      <label class="knob">pacientes: <b id="nB1v" class="mono"></b></label>
+      <input type="range" id="nB1" min="10" max="600" step="1" value="270">
+      <label class="knob">tasa de éxito: <b id="pB1v" class="mono"></b></label>
+      <input type="range" id="pB1" min="0" max="100" step="1" value="87">
+    </div>
+    <div>
+      <h3><span class="sw" style="background:var(--accent)"></span>Tratamiento A — casos graves</h3>
+      <label class="knob">pacientes: <b id="nA2v" class="mono"></b></label>
+      <input type="range" id="nA2" min="10" max="600" step="1" value="263">
+      <label class="knob">tasa de éxito: <b id="pA2v" class="mono"></b></label>
+      <input type="range" id="pA2" min="0" max="100" step="1" value="73">
+    </div>
+    <div>
+      <h3><span class="sw" style="background:var(--accent2)"></span>Tratamiento B — casos graves</h3>
+      <label class="knob">pacientes: <b id="nB2v" class="mono"></b></label>
+      <input type="range" id="nB2" min="10" max="600" step="1" value="80">
+      <label class="knob">tasa de éxito: <b id="pB2v" class="mono"></b></label>
+      <input type="range" id="pB2" min="0" max="100" step="1" value="69">
+    </div>
+  </div>
+
+  <div class="scroll" style="margin-top:16px">
+    <table id="tblLive"></table>
+  </div>
+</div>
+
+<p class="small">Movés cualquier perilla de tamaño y las tasas de los estratos se quedan donde están —salvo el temblor del redondeo al paciente entero, que la tabla muestra tal cual—: lo único que cambia de verdad es cuánto pesa cada estrato en el total. Ese es el aparato entero. <strong>La inversión no la produce ningún dato médico: la produce quién mandó a quién a qué tratamiento.</strong></p>
+
+<h2>2 · Cuánto desbalance hace falta</h2>
+<p>La pregunta obvia es si esto puede pasar siempre. No: hay un umbral y se calcula. Fijemos las cuatro tasas y movamos una sola cosa —el <em>reparto</em>, o sea qué fracción de cada tratamiento fueron casos leves—. Si los dos tratamientos reciben la misma mezcla de pacientes, la inversión es <strong>imposible</strong>. No improbable: imposible, y el aparato lo va a decir a los gritos porque no vas a poder producirla.</p>
+
+<div class="card">
+  <label class="knob">Desbalance del reparto: <b id="dVal" class="mono"></b>
+    <span class="small">(0 = las dos ramas reciben la misma mezcla)</span></label>
+  <input type="range" id="dSlider" min="0" max="45" step="0.5" value="0">
+  <canvas id="thr" height="220" aria-label="Tasa global de cada tratamiento en función del desbalance del reparto"></canvas>
+  <div id="thrTxt" class="verdict norev" style="margin-top:12px">—</div>
+  <p class="small" style="margin-bottom:0">Las cuatro tasas por estrato están congeladas en los valores del caso de las piedras (93 / 73 para <span class="A">A</span>, 87 / 69 para <span class="B">B</span>). Lo único que se mueve es a quién le tocó qué.</p>
+</div>
+
+<p>El umbral sale de una cuenta de dos renglones. Con <span class="mono">c</span> la fracción de casos leves en el centro y <span class="mono">δ</span> el desbalance, la ventaja global de A sobre B vale</p>
+<p class="mono" style="text-align:center">ventaja(δ) = E − δ·D,&nbsp;&nbsp;&nbsp; con&nbsp; E = c(p<sub>A1</sub>−p<sub>B1</sub>) + (1−c)(p<sub>A2</sub>−p<sub>B2</sub>) &nbsp;y&nbsp; D = (p<sub>A1</sub>−p<sub>A2</sub>) + (p<sub>B1</sub>−p<sub>B2</sub>)</p>
+<p><span class="mono">E</span> es cuánto mejor es A dentro de los estratos; <span class="mono">D</span> es cuánto más fácil es un caso leve que uno grave. La inversión ocurre cuando <span class="mono">δ &gt; E/D</span>. Leído despacio, eso dice algo bastante brutal: <strong>la mentira del promedio es proporcional a la diferencia entre los pacientes, y sólo hace falta que la asignación esté torcida más que eso.</strong> Un tratamiento que apenas gana en cada estrato (E chico) aplicado a enfermedades muy distintas entre sí (D grande) se da vuelta con casi nada de sesgo de asignación.</p>
+<p>Y por eso se aleatoriza. La aleatorización no es un rito de higiene: es la operación que pone <span class="mono">δ = 0</span> por construcción y deja el promedio incapaz de contradecir a los estratos. No mejora la medición de nada — hace que una clase entera de mentira deje de ser posible.</p>
+
+<h2>3 · Tres tablas reales</h2>
+<p>Los tres casos que se citan siempre. Los cargué con las cifras publicadas y el aparato las recalcula delante tuyo; nada de esto está escrito a mano en el texto.</p>
+
+<div class="card">
+  <div class="row" id="realBtns"></div>
+  <h3 id="realName">—</h3>
+  <p class="small" id="realDesc" style="margin-top:0">—</p>
+  <div class="scroll"><table id="tblReal"></table></div>
+  <div id="realVerdict" class="verdict norev"></div>
+</div>
+
+<p class="small"><strong>Una honestidad sobre Berkeley,</strong> que es el caso más citado del mundo y casi siempre se cuenta mal. Se suele contar como si los seis departamentos hubieran favorecido a las mujeres; no es cierto —dos de los seis favorecen a los varones— y el efecto agregado no es una inversión limpia sino una acumulación de pesos. También se suele contar que hubo un juicio: no lo hubo. La universidad temió que lo hubiera y le pidió los datos a un estadístico.<sup>3</sup> Y el propio artículo de 1975 no concluye «no hubo sesgo en ninguna parte»: concluye que el sesgo no está en la decisión de admitir, y deja explícitamente abierto lo que ocurrió <em>antes</em> —qué llevó a las mujeres a postularse a los departamentos más difíciles—. La paradoja de Simpson no absolvió a nadie: movió la pregunta de lugar.</p>
+
+<h2>4 · El conmutador (acá el aparato se queda sin perillas)</h2>
+<p>Hasta acá parece que la lección es «desagregá siempre». Es falsa, y es la parte que casi nunca se cuenta.</p>
+<p>Abajo hay <strong>una sola tabla</strong>. Los números no cambian cuando apretás el interruptor: cambia únicamente qué es la columna del medio. En un caso es algo que ya venía con el paciente (el tamaño de la piedra) y decidió qué tratamiento recibió. En el otro es algo que <em>produjo el tratamiento</em> (el embarazo que la píldora evita), y que a su vez causa el resultado.<sup>4</sup></p>
+
+<div class="card">
+  <div class="row">
+    <button id="swConf" class="on">La columna es una causa previa</button>
+    <button id="swMed">La columna es un efecto del tratamiento</button>
+  </div>
+  <div class="dagbox">
+    <div>
+      <svg id="dag" viewBox="0 0 320 150" aria-label="Diagrama causal"></svg>
+      <p class="mini" id="dagTxt" style="text-align:center"></p>
+    </div>
+    <div>
+      <div class="scroll"><table id="tblSw"></table></div>
+    </div>
+  </div>
+  <div id="swVerdict" class="verdict"></div>
+</div>
+
+<p>Las dos lecturas son correctas. Cuál corresponde no lo decide la tabla, porque las dos historias <strong>generan exactamente los mismos números</strong> y ninguna prueba estadística puede separarlas: cualquier dato producido por una estructura pudo haber sido producido por la otra.<sup>5</sup> El dato que decide —si la columna del medio ocurrió antes o después del tratamiento— no está en ninguna celda. Viene de saber cómo se produjo la tabla, y eso es conocimiento del mundo, no de los datos.</p>
+<p>Es la única conclusión de este aparato que no se puede tocar con el dedo: <strong>no hay posición de las perillas en la que los números te digan qué hacer con los números.</strong> Podés mover todo lo demás.</p>
+
+<h2>5 · Banco de práctica</h2>
+<p>Una tabla y una historia, sorteadas. Elegí qué tratamiento recomendarías. La misma tabla puede tener las dos respuestas según la historia que le toque, así que leerla más rápido no sirve de nada.</p>
+
+<div class="card">
+  <div id="qBox">
+    <p class="small" id="qStory" style="margin-top:0"></p>
+    <div class="scroll"><table id="tblQ"></table></div>
+    <div class="row" style="margin-top:12px">
+      <button id="ansA">Recomiendo A</button>
+      <button id="ansB">Recomiendo B</button>
+      <button id="qNext" style="margin-left:auto">Otra ronda →</button>
+    </div>
+    <div id="qFb" class="verdict norev">—</div>
+    <p class="mini" id="qScore"></p>
+  </div>
+</div>
+
+<h2>6 · Banco de pruebas</h2>
+<p class="small">No pude ejecutar nada mientras construía esto: el que lo escribió no tiene permiso de correr comandos ni navegador para abrir la página. Todo lo que este aparato afirma se verifica solo, en tu máquina, ahora. Los valores esperados vienen de las publicaciones citadas al pie, no de este código; las propiedades matemáticas se prueban por muestreo aleatorio contra la implementación. Si algo sale en rojo, el aparato está mintiendo y podés dejar de creerle.</p>
+<div class="card">
+  <div id="tests" class="mono"></div>
+  <div id="testSummary" class="big" style="margin-top:10px">—</div>
+</div>
+
+<div class="fn">
+<h3>Fuentes y precisiones</h3>
+<ol>
+<li><strong>Cálculos renales.</strong> C. R. Charig, D. R. Webb, S. R. Payne, J. E. Wickham, «Comparison of treatment of renal calculi by open surgery, percutaneous nephrolithotomy, and extracorporeal shockwave lithotripsy», <em>BMJ</em> 292 (1986): 879–882. La estratificación por tamaño de piedra que produce la inversión es de S. A. Julious y M. A. Mullee, «Confounding and Simpson's paradox», <em>BMJ</em> 309 (1994): 1480–1481. Cifras: A = 81/87 y 192/263; B = 234/270 y 55/80. Nota importante: los tratamientos no se asignaron al azar — el cirujano elegía según el caso, que es exactamente el mecanismo del punto 2.</li>
+<li><strong>La lectura vectorial</strong> es de J. Kocik, «Proof Without Words: Simpson's Paradox», <em>Mathematics Magazine</em> 74 (2001): 399. La desigualdad de fondo es la del <em>mediant</em>: si <span class="mono">a/b &lt; c/d</span> con denominadores positivos, entonces <span class="mono">a/b &lt; (a+c)/(b+d) &lt; c/d</span>. De ahí sale el corolario que el banco de pruebas verifica: con un solo estrato la inversión es imposible.</li>
+<li><strong>Berkeley.</strong> P. J. Bickel, E. A. Hammel, J. W. O'Connell, «Sex Bias in Graduate Admissions: Data from Berkeley», <em>Science</em> 187 (1975): 398–403. Las cifras por departamento son el conjunto <span class="mono">UCBAdmissions</span> distribuido con R (los seis departamentos más grandes, 4526 postulantes). Lo del juicio inexistente está documentado en A. Reinhart, «The Berkeley Simpson's Paradox Myth» (2016), que rastrea la leyenda a través de décadas de manuales.</li>
+<li><strong>El caso del mediador</strong> es de G. Hesslow, «Two Notes on the Probabilistic Approach to Causality», <em>Philosophy of Science</em> 43 (1976): 290–292: los anticonceptivos orales aumentan el riesgo de trombosis por vía química y lo bajan por vía indirecta, porque evitan el embarazo, que también causa trombosis. Condicionar en embarazo tapa la mitad del efecto. La formulación en términos de qué ajustar y qué no es de J. Pearl, <em>Causality</em> (2000), cap. 6. <strong>Declarado:</strong> en el conmutador le pegué al caso de la píldora los números del caso de las piedras. Son inventados para ese escenario y están puestos a propósito — el punto teatral del panel es que la aritmética es idéntica, y sólo se ve si la aritmética es, efectivamente, idéntica.</li>
+<li>«No hay base para distinguir las dos estructuras causales usando estadística sola: cualquier dato generado por uno de los modelos podría haber sido generado por el otro» — <em>Stanford Encyclopedia of Philosophy</em>, «Simpson's Paradox». Historia del nombre: el fenómeno lo señalan K. Pearson (1899) y G. U. Yule (1903); el artículo que le dio nombre es E. H. Simpson, «The Interpretation of Interaction in Contingency Tables», <em>JRSS B</em> 13 (1951): 238–241, y quien lo bautizó fue C. R. Blyth (1972). El choque con el <em>sure-thing principle</em> de Savage —si preferís g a f sabiendo que pasó B, y también sabiendo que no pasó B, entonces preferís g a f— es lo que lo volvió famoso fuera de la estadística.</li>
+<li><strong>Béisbol.</strong> Promedios de bateo de Derek Jeter y David Justice, temporadas 1995 y 1996 (Jeter 12/48 y 183/582; Justice 104/411 y 45/140). Es el caso más limpio porque no hay ninguna historia causal que discutir: es aritmética de pesos y nada más.</li>
+</ol>
+<p style="margin-top:14px">Sin librerías, sin red, sin dependencias: un archivo. Los cálculos corren donde lo abras. 🦔🔪؟</p>
+</div>
+
+</div>
+<script>
+"use strict";
+/* ═══════════════ núcleo ═══════════════ */
+const R = (k,n)=> n>0 ? k/n : 0;
+const pct = x => (100*x).toFixed(1)+" %";
+const pct2 = x => (100*x).toFixed(2)+" %";
+const ba = x => x.toFixed(3).replace(/^0/,"");
+
+/** Un brazo es una lista de estratos {n, k}. Devuelve totales y tasa. */
+function arm(strata){
+  let n=0,k=0;
+  for(const s of strata){ n+=s.n; k+=s.k; }
+  return {n,k,rate:R(k,n)};
+}
+/** ¿Hay inversión de Simpson entre dos brazos con los mismos estratos?
+ *  Estricta: un brazo gana en TODOS los estratos y pierde en el total. */
+function reversal(A,B){
+  if(A.length!==B.length || A.length<1) return null;
+  let aWinsAll=true, bWinsAll=true;
+  for(let i=0;i<A.length;i++){
+    const ra=R(A[i].k,A[i].n), rb=R(B[i].k,B[i].n);
+    if(!(ra>rb)) aWinsAll=false;
+    if(!(rb>ra)) bWinsAll=false;
+  }
+  const ta=arm(A).rate, tb=arm(B).rate;
+  if(aWinsAll && tb>ta) return "B";   // A gana en todos, B gana el total
+  if(bWinsAll && ta>tb) return "A";
+  return null;
+}
+/** Umbral analítico de desbalance: δ* = E/D  (ver texto §2) */
+function deltaStar(pA1,pA2,pB1,pB2,c){
+  const E = c*(pA1-pB1) + (1-c)*(pA2-pB2);
+  const D = (pA1-pA2) + (pB1-pB2);
+  if(D<=0) return Infinity;
+  return E/D;
+}
+
+/* ═══════════════ datos reales (cifras publicadas) ═══════════════ */
+const STONES = {
+  name:"Cálculos renales · Charig 1986 / Julious–Mullee 1994",
+  desc:"Cirugía abierta (A) contra nefrolitotomía percutánea (B). El cirujano elegía el tratamiento según el tamaño de la piedra: la asignación no fue aleatoria.",
+  strataNames:["piedras chicas (< 2 cm)","piedras grandes (≥ 2 cm)"],
+  labels:["A · cirugía abierta","B · percutánea"],
+  A:[{n:87,k:81},{n:263,k:192}],
+  B:[{n:270,k:234},{n:80,k:55}],
+  fmt:pct
+};
+const BERKELEY = {
+  name:"Admisiones de posgrado · Berkeley 1973",
+  desc:"Los seis departamentos más grandes. «Éxito» es ser admitido. La columna de estratos es el departamento al que cada persona se postuló.",
+  strataNames:["depto. A","depto. B","depto. C","depto. D","depto. E","depto. F"],
+  labels:["varones","mujeres"],
+  A:[{n:825,k:512},{n:560,k:353},{n:325,k:120},{n:417,k:138},{n:191,k:53},{n:373,k:22}],
+  B:[{n:108,k:89},{n:25,k:17},{n:593,k:202},{n:375,k:131},{n:393,k:94},{n:341,k:24}],
+  fmt:pct
+};
+const BASEBALL = {
+  name:"Promedio de bateo · Jeter vs. Justice, 1995–96",
+  desc:"«Éxito» es un hit; «pacientes» son turnos al bate. No hay ninguna historia causal que discutir acá: es puro peso.",
+  strataNames:["temporada 1995","temporada 1996"],
+  labels:["Derek Jeter","David Justice"],
+  A:[{n:48,k:12},{n:582,k:183}],
+  B:[{n:411,k:104},{n:140,k:45}],
+  fmt:ba
+};
+const CASES=[STONES,BERKELEY,BASEBALL];
+
+/* ═══════════════ §1 · el vectorizador ═══════════════ */
+const ids=["nA1","pA1","nA2","pA2","nB1","pB1","nB2","pB2"];
+const el={}; ids.forEach(i=>{el[i]=document.getElementById(i); el[i+"v"]=document.getElementById(i+"v");});
+const cv=document.getElementById("vec"), cx=cv.getContext("2d");
+
+function readKnobs(){
+  const g=(id)=>+el[id].value;
+  const mk=(n,p)=>({n:n, k:Math.round(n*p/100), p:p/100});
+  return {
+    A:[mk(g("nA1"),g("pA1")), mk(g("nA2"),g("pA2"))],
+    B:[mk(g("nB1"),g("pB1")), mk(g("nB2"),g("pB2"))]
+  };
+}
+function css(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
+
+function drawVectors(){
+  const {A,B}=readKnobs();
+  const dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth, H=420;
+  cv.width=W*dpr; cv.height=H*dpr; cv.style.height=H+"px";
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  cx.clearRect(0,0,W,H);
+
+  const pad={l:52,r:16,t:18,b:34};
+  const tA=arm(A), tB=arm(B);
+  const maxX=Math.max(tA.n,tB.n)*1.04, maxY=Math.max(tA.k,tB.k,1)*1.10;
+  const X=v=> pad.l + (v/maxX)*(W-pad.l-pad.r);
+  const Y=v=> H-pad.b - (v/maxY)*(H-pad.t-pad.b);
+
+  // ejes
+  cx.strokeStyle=css("--line"); cx.lineWidth=1;
+  cx.beginPath(); cx.moveTo(pad.l,pad.t); cx.lineTo(pad.l,H-pad.b); cx.lineTo(W-pad.r,H-pad.b); cx.stroke();
+  cx.fillStyle=css("--dim"); cx.font="12px ui-monospace,Menlo,monospace";
+  cx.fillText("éxitos", 6, pad.t+10);
+  cx.textAlign="right"; cx.fillText("pacientes tratados", W-pad.r, H-10); cx.textAlign="left";
+
+  const path=(strata,color,label,dash)=>{
+    let x=0,y=0;
+    cx.lineWidth=3; cx.strokeStyle=color;
+    cx.beginPath(); cx.moveTo(X(0),Y(0));
+    for(const s of strata){ x+=s.n; y+=s.k; cx.lineTo(X(x),Y(y)); }
+    cx.stroke();
+    // nodos
+    x=0;y=0;
+    for(const s of strata){
+      x+=s.n; y+=s.k;
+      cx.fillStyle=color; cx.beginPath(); cx.arc(X(x),Y(y),4,0,7); cx.fill();
+    }
+    // recta global punteada
+    cx.save(); cx.setLineDash(dash); cx.lineWidth=1.5; cx.globalAlpha=.75;
+    cx.beginPath(); cx.moveTo(X(0),Y(0)); cx.lineTo(X(x),Y(y)); cx.stroke(); cx.restore();
+    // etiqueta
+    cx.fillStyle=color; cx.font="600 13px ui-serif,Georgia,serif";
+    cx.fillText(label, X(x)+6>W-70? W-72 : X(x)+6, Y(y)-6);
+    return {x,y};
+  };
+  path(A,css("--accent"),"A",[2,4]);
+  path(B,css("--accent2"),"B",[6,4]);
+
+  // marcador del ganador global: el punto final más "arriba en pendiente"
+  cx.font="12px ui-monospace,Menlo,monospace";
+  cx.fillStyle=css("--dim");
+  cx.fillText("línea punteada = tasa global (pendiente del origen al final)", pad.l+4, pad.t+12);
+
+  // veredicto + tabla
+  const rev=reversal(A,B);
+  const v=document.getElementById("verdict");
+  const sA=A.map(s=>R(s.k,s.n)), sB=B.map(s=>R(s.k,s.n));
+  const winStr=[0,1].map(i=> sA[i]>sB[i]?"A":(sB[i]>sA[i]?"B":"="));
+  const gA=tA.rate, gB=tB.rate;
+  const gWin = gA>gB?"A":(gB>gA?"B":"=");
+  if(rev){
+    v.className="verdict rev";
+    v.innerHTML="◆ INVERSIÓN. "+(rev==="B"?"A":"B")+" gana en los dos estratos ("+
+      pct(Math.max(sA[0],sB[0]))+" y "+pct(Math.max(sA[1],sB[1]))+
+      ") y pierde el total ("+pct(rev==="B"?gA:gB)+" contra "+pct(rev==="B"?gB:gA)+").";
+  } else {
+    v.className="verdict norev";
+    v.innerHTML="sin inversión — estrato leve: <b>"+winStr[0]+"</b> · estrato grave: <b>"+winStr[1]+
+      "</b> · total: <b>"+gWin+"</b>";
+  }
+
+  const rows=[
+    ["", "A n", "A éxitos", "A tasa", "B n", "B éxitos", "B tasa", "gana"],
+    ["casos leves", A[0].n, A[0].k, pct(sA[0]), B[0].n, B[0].k, pct(sB[0]), winStr[0]],
+    ["casos graves", A[1].n, A[1].k, pct(sA[1]), B[1].n, B[1].k, pct(sB[1]), winStr[1]]
+  ];
+  let html="<thead><tr>"+rows[0].map(h=>"<th>"+h+"</th>").join("")+"</tr></thead><tbody>";
+  for(let i=1;i<rows.length;i++) html+="<tr>"+rows[i].map(c=>"<td>"+c+"</td>").join("")+"</tr>";
+  html+="<tr class='tot'><td>TOTAL</td><td>"+tA.n+"</td><td>"+tA.k+"</td><td>"+pct(gA)+
+        "</td><td>"+tB.n+"</td><td>"+tB.k+"</td><td>"+pct(gB)+"</td><td>"+gWin+"</td></tr></tbody>";
+  document.getElementById("tblLive").innerHTML=html;
+
+  ids.forEach(i=>{ el[i+"v"].textContent = i[0]==="n"? el[i].value : el[i].value+" %"; });
+}
+ids.forEach(i=> el[i].addEventListener("input",drawVectors));
+window.addEventListener("resize",()=>{drawVectors();drawThreshold();});
+
+function setKnobs(o){ for(const k in o) el[k].value=o[k]; drawVectors(); }
+document.getElementById("btnStones").onclick=()=>setKnobs({nA1:87,pA1:93,nA2:263,pA2:73,nB1:270,pB1:87,nB2:80,pB2:69});
+document.getElementById("btnBal").onclick=()=>{
+  // mismo reparto en las dos ramas, tasas intactas
+  const n1=+el.nA1.value, n2=+el.nA2.value;
+  setKnobs({nB1:n1,nB2:n2});
+};
+document.getElementById("btnRev").onclick=()=>{
+  // busca una inversión respetando el orden de tasas actual; si no lo hay, lo construye
+  let pA1=+el.pA1.value,pA2=+el.pA2.value,pB1=+el.pB1.value,pB2=+el.pB2.value;
+  if(!(pA1>pB1 && pA2>pB2)){ pA1=93;pA2=73;pB1=87;pB2=69; }
+  // A cargado de casos graves, B cargado de casos leves
+  const cfg={pA1,pA2,pB1,pB2,nA1:60,nA2:520,nB1:520,nB2:60};
+  setKnobs(cfg);
+  if(!reversal(readKnobs().A,readKnobs().B)) setKnobs({pA1:93,pA2:73,pB1:87,pB2:69,nA1:60,nA2:520,nB1:520,nB2:60});
+};
+
+/* ═══════════════ §2 · el umbral ═══════════════ */
+const PA1=.93,PA2=.73,PB1=.87,PB2=.69, CMID=.5;
+const cvT=document.getElementById("thr"), cxT=cvT.getContext("2d");
+const dS=document.getElementById("dSlider");
+function ratesAt(delta){
+  const fA=CMID-delta, fB=CMID+delta;
+  return { a: fA*PA1+(1-fA)*PA2, b: fB*PB1+(1-fB)*PB2, fA, fB };
+}
+function drawThreshold(){
+  const dpr=window.devicePixelRatio||1, W=cvT.clientWidth, H=220;
+  cvT.width=W*dpr; cvT.height=H*dpr; cvT.style.height=H+"px";
+  cxT.setTransform(dpr,0,0,dpr,0,0); cxT.clearRect(0,0,W,H);
+  const pad={l:56,r:14,t:14,b:30};
+  const dmax=.45;
+  // el rango cubre los extremos reales de las dos curvas en [0,dmax]:
+  // A baja hasta 74,0 % y B sube hasta 86,1 % — con el techo en 86 % la curva B se cortaba.
+  const lo=.72, hi=.88;
+  const X=d=> pad.l + (d/dmax)*(W-pad.l-pad.r);
+  const Y=v=> H-pad.b - ((v-lo)/(hi-lo))*(H-pad.t-pad.b);
+
+  cxT.strokeStyle=css("--line"); cxT.lineWidth=1;
+  cxT.beginPath(); cxT.moveTo(pad.l,pad.t); cxT.lineTo(pad.l,H-pad.b); cxT.lineTo(W-pad.r,H-pad.b); cxT.stroke();
+  cxT.fillStyle=css("--dim"); cxT.font="11px ui-monospace,Menlo,monospace";
+  for(let v=.75; v<=.85001; v+=.05){ cxT.fillText((100*v).toFixed(0)+"%", 8, Y(v)+4);
+    cxT.globalAlpha=.35; cxT.beginPath(); cxT.moveTo(pad.l,Y(v)); cxT.lineTo(W-pad.r,Y(v)); cxT.stroke(); cxT.globalAlpha=1; }
+
+  const line=(fn,color)=>{
+    cxT.strokeStyle=color; cxT.lineWidth=2.5; cxT.beginPath();
+    for(let i=0;i<=200;i++){ const d=dmax*i/200, y=fn(d);
+      i?cxT.lineTo(X(d),Y(y)):cxT.moveTo(X(d),Y(y)); }
+    cxT.stroke();
+  };
+  line(d=>ratesAt(d).a, css("--accent"));
+  line(d=>ratesAt(d).b, css("--accent2"));
+
+  const ds=deltaStar(PA1,PA2,PB1,PB2,CMID);
+  if(ds<dmax){
+    cxT.save(); cxT.setLineDash([3,4]); cxT.strokeStyle=css("--warn"); cxT.lineWidth=1.5;
+    cxT.beginPath(); cxT.moveTo(X(ds),pad.t); cxT.lineTo(X(ds),H-pad.b); cxT.stroke(); cxT.restore();
+    cxT.fillStyle=css("--warn"); cxT.font="11px ui-monospace,Menlo,monospace";
+    cxT.fillText("δ* = "+(100*ds).toFixed(1)+" pts", X(ds)+5, pad.t+12);
+  }
+  const d=+dS.value/100, r=ratesAt(d);
+  cxT.fillStyle=css("--ink");
+  cxT.beginPath(); cxT.arc(X(d),Y(r.a),4.5,0,7); cxT.fill();
+  cxT.beginPath(); cxT.arc(X(d),Y(r.b),4.5,0,7); cxT.fill();
+
+  const t=document.getElementById("thrTxt");
+  const inv = r.b>r.a;
+  t.className = "verdict "+(inv?"rev":"norev");
+  t.innerHTML = "reparto — <span class='A'>A</span>: "+(100*r.fA).toFixed(0)+" % leves / "+
+    (100*(1-r.fA)).toFixed(0)+" % graves &nbsp;·&nbsp; <span class='B'>B</span>: "+(100*r.fB).toFixed(0)+" % leves / "+
+    (100*(1-r.fB)).toFixed(0)+" % graves<br>total <span class='A'>A</span> = "+pct2(r.a)+
+    " &nbsp; total <span class='B'>B</span> = "+pct2(r.b)+" &nbsp;→ "+
+    (inv? "◆ INVERSIÓN (A gana los dos estratos y pierde el total)"
+        : "sin inversión — faltan "+(100*Math.max(0,ds-d)).toFixed(1)+" puntos de desbalance");
+  document.getElementById("dVal").textContent=(100*d).toFixed(1)+" puntos";
+}
+dS.addEventListener("input",drawThreshold);
+
+/* ═══════════════ §3 · casos reales ═══════════════ */
+function renderCase(c){
+  document.getElementById("realName").textContent=c.name;
+  document.getElementById("realDesc").textContent=c.desc;
+  const tA=arm(c.A), tB=arm(c.B);
+  let h="<thead><tr><th>estrato</th><th>"+c.labels[0]+"</th><th>tasa</th><th>"+c.labels[1]+"</th><th>tasa</th><th>gana</th></tr></thead><tbody>";
+  let wins=[0,0];
+  for(let i=0;i<c.A.length;i++){
+    const ra=R(c.A[i].k,c.A[i].n), rb=R(c.B[i].k,c.B[i].n);
+    const w= ra>rb? c.labels[0] : (rb>ra? c.labels[1] : "=");
+    if(ra>rb) wins[0]++; else if(rb>ra) wins[1]++;
+    h+="<tr><td>"+c.strataNames[i]+"</td><td>"+c.A[i].k+"/"+c.A[i].n+"</td><td>"+c.fmt(ra)+
+       "</td><td>"+c.B[i].k+"/"+c.B[i].n+"</td><td>"+c.fmt(rb)+"</td><td>"+w+"</td></tr>";
+  }
+  const gw = tA.rate>tB.rate? c.labels[0] : c.labels[1];
+  h+="<tr class='tot'><td>TOTAL</td><td>"+tA.k+"/"+tA.n+"</td><td>"+c.fmt(tA.rate)+
+     "</td><td>"+tB.k+"/"+tB.n+"</td><td>"+c.fmt(tB.rate)+"</td><td>"+gw+"</td></tr></tbody>";
+  document.getElementById("tblReal").innerHTML=h;
+
+  const rev=reversal(c.A,c.B);
+  const v=document.getElementById("realVerdict");
+  if(rev){
+    v.className="verdict rev";
+    v.innerHTML="◆ INVERSIÓN ESTRICTA — un lado gana <b>todos</b> los estratos y pierde el total.";
+  } else {
+    v.className="verdict norev";
+    v.innerHTML="No es inversión estricta: <b>"+c.labels[0]+"</b> gana "+wins[0]+" estratos, <b>"+
+      c.labels[1]+"</b> gana "+wins[1]+", y el total lo gana <b>"+gw+
+      "</b>. El efecto agregado sale de los pesos, no de una ventaja parejita.";
+  }
+}
+const rb=document.getElementById("realBtns");
+CASES.forEach((c,i)=>{
+  const b=document.createElement("button");
+  b.textContent=c.name.split(" · ")[0];
+  b.onclick=()=>{ [...rb.children].forEach(x=>x.classList.remove("on")); b.classList.add("on"); renderCase(c); };
+  rb.appendChild(b);
+});
+rb.children[0].classList.add("on"); renderCase(STONES);
+
+/* ═══════════════ §4 · el conmutador ═══════════════ */
+let mode="conf";
+const SW = {
+  conf:{
+    col:"tamaño de la piedra",
+    strata:["piedras chicas","piedras grandes"],
+    arms:["A · cirugía abierta","B · percutánea"],
+    dag:[["Tamaño","Tratamiento"],["Tamaño","Éxito"],["Tratamiento","Éxito"]],
+    txt:"El tamaño existe antes del tratamiento y causa las dos cosas: influye en qué operación elige el cirujano y en si sale bien.",
+    verdict:"DESAGREGÁ. La columna es una <b>causa común</b>: el total está contaminado por a quién le tocó qué. La respuesta correcta es la de los estratos → gana <span class='A'>A</span>.",
+    ans:"A"
+  },
+  med:{
+    col:"embarazo",
+    strata:["sin embarazo","con embarazo"],
+    arms:["A · sin píldora","B · con píldora"],
+    dag:[["Tratamiento","Embarazo"],["Embarazo","Éxito"],["Tratamiento","Éxito"]],
+    txt:"El embarazo no venía de antes: lo produce (o lo evita) el tratamiento, y a su vez causa el resultado. Es un eslabón del camino, no un factor previo.",
+    verdict:"AGREGÁ. La columna es un <b>eslabón intermedio</b>: separar por ella tapa justamente la mitad del efecto que el tratamiento produce a través de ella. La respuesta correcta es la del total → gana <span class='B'>B</span>.",
+    ans:"B"
+  }
+};
+function drawDag(){
+  const s=SW[mode], svg=document.getElementById("dag");
+  const pos = mode==="conf"
+    ? {"Tamaño":[160,26],"Tratamiento":[52,112],"Éxito":[268,112]}
+    : {"Tratamiento":[52,112],"Embarazo":[160,26],"Éxito":[268,112]};
+  const A=css("--accent"), L=css("--ink"), D=css("--dim");
+  let h='<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">'+
+        '<path d="M0,0 L0,6 L8,3 z" fill="'+D+'"/></marker></defs>';
+  // recorta el segmento al borde real de cada caja (84×28) en vez de usar un offset fijo,
+  // que dejaba las puntas de flecha dentro de los rectángulos
+  const HW=42, HH=14, M=5;
+  const edge=(x,y,dx,dy)=>{
+    const t=Math.min(dx?(HW+M)/Math.abs(dx):Infinity, dy?(HH+M)/Math.abs(dy):Infinity);
+    return [x+t*dx, y+t*dy];
+  };
+  for(const [a,b] of s.dag){
+    const [x1,y1]=pos[a], [x2,y2]=pos[b];
+    const dx=x2-x1, dy=y2-y1;
+    const [sx,sy]=edge(x1,y1, dx, dy);
+    const [ex,ey]=edge(x2,y2,-dx,-dy);
+    h+='<line x1="'+sx.toFixed(1)+'" y1="'+sy.toFixed(1)+'" x2="'+ex.toFixed(1)+'" y2="'+ey.toFixed(1)+
+       '" stroke="'+D+'" stroke-width="1.6" marker-end="url(#ah)"/>';
+  }
+  for(const k in pos){
+    const [x,y]=pos[k];
+    const hi = (k==="Tamaño"||k==="Embarazo");
+    h+='<rect x="'+(x-42)+'" y="'+(y-14)+'" width="84" height="28" rx="7" fill="'+css("--card")+
+       '" stroke="'+(hi?A:D)+'" stroke-width="'+(hi?2:1.2)+'"/>';
+    h+='<text x="'+x+'" y="'+(y+4)+'" text-anchor="middle" font-size="11.5" font-family="ui-monospace,Menlo,monospace" fill="'+L+'">'+k+'</text>';
+  }
+  svg.innerHTML=h;
+  document.getElementById("dagTxt").textContent=s.txt;
+}
+function drawSwitch(){
+  const s=SW[mode];
+  const A=STONES.A, B=STONES.B;
+  const tA=arm(A), tB=arm(B);
+  let h="<thead><tr><th>"+s.col+"</th><th>"+s.arms[0]+"</th><th>"+s.arms[1]+"</th></tr></thead><tbody>";
+  for(let i=0;i<2;i++){
+    h+="<tr><td>"+s.strata[i]+"</td><td>"+A[i].k+"/"+A[i].n+" = "+pct(R(A[i].k,A[i].n))+
+       "</td><td>"+B[i].k+"/"+B[i].n+" = "+pct(R(B[i].k,B[i].n))+"</td></tr>";
+  }
+  h+="<tr class='tot'><td>TOTAL</td><td>"+tA.k+"/"+tA.n+" = "+pct(tA.rate)+
+     "</td><td>"+tB.k+"/"+tB.n+" = "+pct(tB.rate)+"</td></tr></tbody>";
+  document.getElementById("tblSw").innerHTML=h;
+  const v=document.getElementById("swVerdict");
+  v.className="verdict "+(mode==="conf"?"rev":"norev");
+  v.innerHTML=s.verdict+" &nbsp; <span class='pill'>los 12 números no se movieron</span>";
+  drawDag();
+}
+document.getElementById("swConf").onclick=function(){ mode="conf";
+  this.classList.add("on"); document.getElementById("swMed").classList.remove("on"); drawSwitch(); };
+document.getElementById("swMed").onclick=function(){ mode="med";
+  this.classList.add("on"); document.getElementById("swConf").classList.remove("on"); drawSwitch(); };
+
+/* ═══════════════ §5 · banco de práctica ═══════════════ */
+let score={ok:0,n:0}, cur=null, answered=false;
+function randTable(){
+  // genera una tabla con inversión estricta garantizada (A gana los estratos, B el total)
+  for(let t=0;t<400;t++){
+    const pA1=.70+Math.random()*.28, pA2=.30+Math.random()*.33;
+    const pB1=pA1-(.02+Math.random()*.10), pB2=pA2-(.02+Math.random()*.10);
+    if(pB2<=.05) continue;
+    const nA1=20+Math.floor(Math.random()*80),  nA2=200+Math.floor(Math.random()*350);
+    const nB1=200+Math.floor(Math.random()*350), nB2=20+Math.floor(Math.random()*80);
+    const A=[{n:nA1,k:Math.round(nA1*pA1)},{n:nA2,k:Math.round(nA2*pA2)}];
+    const B=[{n:nB1,k:Math.round(nB1*pB1)},{n:nB2,k:Math.round(nB2*pB2)}];
+    if(reversal(A,B)==="B") return {A,B};
+  }
+  // copia profunda: el fallback nunca debe entregar referencias a los datos publicados
+  return {A:STONES.A.map(s=>({...s})), B:STONES.B.map(s=>({...s}))};
+}
+const STORIES=[
+  {mode:"conf", txt:"La columna del medio es la <b>gravedad del cuadro al ingresar</b>. Se registró en la guardia, antes de decidir el tratamiento, y los médicos la tuvieron a la vista al decidir."},
+  {mode:"conf", txt:"La columna del medio es la <b>antigüedad del equipo del taller</b> donde entró cada máquina. Estaba ahí desde antes y determinó a qué línea de reparación fue cada una."},
+  {mode:"med",  txt:"La columna del medio es un <b>efecto secundario que provoca el propio tratamiento</b> en algunos pacientes, y ese efecto es parte de cómo el tratamiento actúa sobre el resultado."},
+  {mode:"med",  txt:"La columna del medio es <b>si la persona dejó de fumar durante el programa</b>. El programa es justamente lo que hace que algunos dejen, y dejar es una de las vías por las que mejora la salud."}
+];
+function newRound(){
+  const t=randTable(), s=STORIES[Math.floor(Math.random()*STORIES.length)];
+  cur={...t, story:s};
+  answered=false;
+  document.getElementById("qStory").innerHTML=s.txt;
+  const tA=arm(t.A), tB=arm(t.B);
+  let h="<thead><tr><th>columna del medio</th><th>tratamiento A</th><th>tasa</th><th>tratamiento B</th><th>tasa</th></tr></thead><tbody>";
+  for(let i=0;i<2;i++){
+    h+="<tr><td>"+(i?"valor 2":"valor 1")+"</td><td>"+t.A[i].k+"/"+t.A[i].n+"</td><td>"+pct(R(t.A[i].k,t.A[i].n))+
+       "</td><td>"+t.B[i].k+"/"+t.B[i].n+"</td><td>"+pct(R(t.B[i].k,t.B[i].n))+"</td></tr>";
+  }
+  h+="<tr class='tot'><td>TOTAL</td><td>"+tA.k+"/"+tA.n+"</td><td>"+pct(tA.rate)+
+     "</td><td>"+tB.k+"/"+tB.n+"</td><td>"+pct(tB.rate)+"</td></tr></tbody>";
+  document.getElementById("tblQ").innerHTML=h;
+  const fb=document.getElementById("qFb");
+  fb.className="verdict norev"; fb.textContent="—";
+  document.getElementById("ansA").disabled=false;
+  document.getElementById("ansB").disabled=false;
+}
+function answer(pick){
+  if(answered||!cur) return;
+  answered=true; score.n++;
+  const right = cur.story.mode==="conf" ? "A" : "B";
+  const ok = pick===right;
+  if(ok) score.ok++;
+  const fb=document.getElementById("qFb");
+  fb.className="verdict "+(ok?"rev":"norev");
+  fb.innerHTML=(ok?"✓ ":"✗ ")+"la respuesta es <b>"+right+"</b>. "+
+    (cur.story.mode==="conf"
+      ? "La columna es previa al tratamiento: es una causa común, y hay que <b>desagregar</b>."
+      : "La columna la produce el tratamiento: es un eslabón, y separar por ella <b>tapa</b> parte del efecto. Hay que quedarse con el total.");
+  document.getElementById("ansA").disabled=true;
+  document.getElementById("ansB").disabled=true;
+  document.getElementById("qScore").textContent=
+    score.ok+" de "+score.n+" — y fijate que la tabla nunca te dio la respuesta: la dio el primer párrafo.";
+}
+document.getElementById("ansA").onclick=()=>answer("A");
+document.getElementById("ansB").onclick=()=>answer("B");
+document.getElementById("qNext").onclick=newRound;
+
+/* ═══════════════ §6 · banco de pruebas ═══════════════ */
+const T=[];
+function test(name,fn,expected){ T.push({name,fn,expected}); }
+
+// — cifras publicadas (los esperados vienen de las fuentes, no de este código) —
+test("Berkeley · varones admitidos (Bickel 1975: 1198)", ()=>arm(BERKELEY.A).k, 1198);
+test("Berkeley · varones postulantes (1975: 2691)",      ()=>arm(BERKELEY.A).n, 2691);
+test("Berkeley · mujeres admitidas (1975: 557)",         ()=>arm(BERKELEY.B).k, 557);
+test("Berkeley · mujeres postulantes (1975: 1835)",      ()=>arm(BERKELEY.B).n, 1835);
+test("Berkeley · total del conjunto UCBAdmissions (4526)",
+     ()=>arm(BERKELEY.A).n+arm(BERKELEY.B).n, 4526);
+test("Berkeley · tasa varones = 44,5 %",  ()=>+(100*arm(BERKELEY.A).rate).toFixed(1), 44.5);
+test("Berkeley · tasa mujeres = 30,4 %",  ()=>+(100*arm(BERKELEY.B).rate).toFixed(1), 30.4);
+test("Berkeley · departamentos donde la tasa femenina es mayor",
+     ()=>BERKELEY.A.reduce((a,_,i)=> a + (R(BERKELEY.B[i].k,BERKELEY.B[i].n) > R(BERKELEY.A[i].k,BERKELEY.A[i].n) ?1:0),0), 4);
+test("Berkeley · NO es inversión estricta (dos deptos van al revés)",
+     ()=>reversal(BERKELEY.A,BERKELEY.B)===null, true);
+
+test("Piedras · A total (Charig: 273/350)", ()=>arm(STONES.A).k+"/"+arm(STONES.A).n, "273/350");
+test("Piedras · B total (Charig: 289/350)", ()=>arm(STONES.B).k+"/"+arm(STONES.B).n, "289/350");
+test("Piedras · A gana en los dos estratos",
+     ()=>R(81,87)>R(234,270) && R(192,263)>R(55,80), true);
+test("Piedras · A pierde el total",
+     ()=>arm(STONES.A).rate < arm(STONES.B).rate, true);
+test("Piedras · SÍ es inversión estricta, y la gana B",
+     ()=>reversal(STONES.A,STONES.B), "B");
+test("Piedras · tasas publicadas 93/73 y 87/69 (redondeadas)",
+     ()=>[R(81,87),R(192,263),R(234,270),R(55,80)].map(x=>Math.round(100*x)).join("/"), "93/73/87/69");
+
+test("Béisbol · Justice gana 1995 (.253 vs .250)", ()=>R(104,411)>R(12,48), true);
+test("Béisbol · Justice gana 1996 (.321 vs .314)", ()=>R(45,140)>R(183,582), true);
+test("Béisbol · Jeter gana el total (.310 vs .270)",
+     ()=>ba(arm(BASEBALL.A).rate)+" / "+ba(arm(BASEBALL.B).rate), ".310 / .270");
+test("Béisbol · es inversión estricta a favor de Jeter",
+     ()=>reversal(BASEBALL.A,BASEBALL.B), "A");
+
+// — propiedades matemáticas, por muestreo aleatorio contra la implementación —
+test("Mediant · el total siempre cae entre las dos tasas (3000 casos)", ()=>{
+  for(let i=0;i<3000;i++){
+    const b=1+Math.floor(Math.random()*400), d=1+Math.floor(Math.random()*400);
+    const a=Math.floor(Math.random()*(b+1)), c=Math.floor(Math.random()*(d+1));
+    const lo=Math.min(a/b,c/d), hi=Math.max(a/b,c/d), m=(a+c)/(b+d);
+    if(m<lo-1e-12 || m>hi+1e-12) return "falla en "+a+"/"+b+" y "+c+"/"+d;
+  }
+  return "ok";
+}, "ok");
+test("Un solo estrato NUNCA puede invertirse (3000 casos)", ()=>{
+  for(let i=0;i<3000;i++){
+    const n1=1+Math.floor(Math.random()*300), n2=1+Math.floor(Math.random()*300);
+    const A=[{n:n1,k:Math.floor(Math.random()*(n1+1))}];
+    const B=[{n:n2,k:Math.floor(Math.random()*(n2+1))}];
+    if(reversal(A,B)!==null) return "encontró una inversión con un estrato";
+  }
+  return "ok";
+}, "ok");
+test("Con el MISMO reparto en las dos ramas, la inversión es imposible (3000 casos)", ()=>{
+  let dominados=0;                     // casos donde una rama gana los dos estratos
+  for(let i=0;i<3000;i++){
+    const w1=10+Math.floor(Math.random()*300), w2=10+Math.floor(Math.random()*300);
+    const s=1+Math.floor(Math.random()*3);   // factor ENTERO: la proporción w1:w2 se conserva exacta
+    const A=[{n:w1,   k:Math.floor(Math.random()*(w1+1))},
+             {n:w2,   k:Math.floor(Math.random()*(w2+1))}];
+    const B=[{n:w1*s, k:Math.floor(Math.random()*(w1*s+1))},
+             {n:w2*s, k:Math.floor(Math.random()*(w2*s+1))}];
+    const a1=R(A[0].k,A[0].n),a2=R(A[1].k,A[1].n),b1=R(B[0].k,B[0].n),b2=R(B[1].k,B[1].n);
+    if((a1>b1&&a2>b2)||(b1>a1&&b2>a2)) dominados++;
+    if(reversal(A,B)!==null) return "inversión con reparto igual: "+JSON.stringify({A,B});
+  }
+  // si nunca hubo dominancia, el test no probó nada: eso también es una falla
+  return dominados>200 ? "ok" : "sólo "+dominados+" casos con dominancia — muestra insuficiente";
+}, "ok");
+test("El umbral analítico δ* predice el cruce real (500 configuraciones)", ()=>{
+  let probadas=0;
+  for(let i=0;i<500;i++){
+    const pA1=.55+Math.random()*.44, pB1=pA1-(.01+Math.random()*.12);
+    const pA2=.10+Math.random()*.40, pB2=pA2-(.01+Math.random()*.09);
+    if(pB2<=.01) continue;
+    const c=.3+Math.random()*.4;
+    const ds=deltaStar(pA1,pA2,pB1,pB2,c);
+    if(!isFinite(ds) || ds<=0 || ds>=Math.min(c,1-c)) continue;
+    const f=d=>{ const fA=c-d, fB=c+d;
+      return (fA*pA1+(1-fA)*pA2) - (fB*pB1+(1-fB)*pB2); };
+    probadas++;
+    // justo antes del umbral A gana; justo después, pierde
+    if(!(f(ds-1e-4)>0 && f(ds+1e-4)<0)) return "el cruce no cae en δ* (config "+i+")";
+  }
+  // sin este piso, un test donde todo se saltea por `continue` daría verde sin haber probado nada
+  return probadas>=50 ? "ok" : "sólo "+probadas+" configuraciones válidas — muestra insuficiente";
+}, "ok");
+test("δ* es infinito cuando los estratos no difieren en dificultad", ()=>{
+  return deltaStar(.8,.8,.7,.7,.5)===Infinity;
+}, true);
+test("El generador del banco de práctica produce inversión estricta (60 tiradas)", ()=>{
+  for(let i=0;i<60;i++){ const t=randTable(); if(reversal(t.A,t.B)!=="B") return "tirada "+i+" sin inversión"; }
+  return "ok";
+}, "ok");
+test("Las dos ramas del conmutador leen exactamente la misma tabla", ()=>{
+  // el panel §4 usa STONES para los dos modos: verificamos que ningún modo la toque
+  const before=JSON.stringify([STONES.A,STONES.B]);
+  mode="conf"; drawSwitch(); mode="med"; drawSwitch(); mode="conf"; drawSwitch();
+  return JSON.stringify([STONES.A,STONES.B])===before;
+}, true);
+test("reversal() distingue orientación: A-gana-estratos devuelve 'B'", ()=>{
+  const A=[{n:10,k:9},{n:100,k:50}], B=[{n:100,k:80},{n:10,k:4}];
+  return reversal(A,B);
+}, "B");
+test("reversal() devuelve null si no hay dominancia en todos los estratos", ()=>{
+  const A=[{n:100,k:90},{n:100,k:10}], B=[{n:100,k:10},{n:100,k:90}];
+  return reversal(A,B);
+}, null);
+
+(function runTests(){
+  let pass=0;
+  const out=T.map((t,i)=>{
+    let got, ok=false;
+    try{ got=t.fn(); ok = (got===t.expected); }catch(e){ got="EXCEPCIÓN: "+e.message; }
+    if(ok) pass++;
+    return "<div style='padding:3px 0;border-bottom:1px solid var(--line)'>"+
+      "<span class='"+(ok?"pass":"fail")+"'>"+(ok?"✓":"✗")+"</span> "+t.name+
+      (ok? "" : " <span class='fail'>— dio <b>"+String(got)+"</b>, se esperaba <b>"+String(t.expected)+"</b></span>")+
+      "</div>";
+  }).join("");
+  document.getElementById("tests").innerHTML=out;
+  const s=document.getElementById("testSummary");
+  s.innerHTML = pass+" / "+T.length;
+  s.className="big "+(pass===T.length?"pass":"fail");
+})();
+
+/* los canvas leen los colores del CSS al dibujar: si el sistema cambia de tema hay que rehacerlos */
+if(window.matchMedia){
+  const mq=window.matchMedia("(prefers-color-scheme: dark)");
+  const redraw=()=>{ drawVectors(); drawThreshold(); drawDag(); };
+  if(mq.addEventListener) mq.addEventListener("change",redraw);
+  else if(mq.addListener) mq.addListener(redraw);
+}
+
+/* arranque */
+drawVectors(); drawThreshold(); drawSwitch(); newRound();
+</script>
+</body>
+</html>

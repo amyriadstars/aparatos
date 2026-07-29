@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La balanza de Kibble — pesar sin patrón</title>
+<style>
+  :root{
+    --bg:#f6f4ef; --panel:#fffdf8; --ink:#1e1b17; --dim:#6b6459;
+    --line:#ddd6c8; --accent:#c0286f; --accent2:#1f7a6c; --warn:#b45309;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#14130f; --panel:#1c1a16; --ink:#eae4d8; --dim:#9b9384;
+           --line:#332f27; --accent:#ff5fa2; --accent2:#4fd1bb; --warn:#f0a952; }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.55 ui-serif,Georgia,"Times New Roman",serif;
+    padding:2rem 1rem 4rem;
+  }
+  .wrap{max-width:980px;margin:0 auto}
+  header{border-bottom:2px solid var(--ink);padding-bottom:1rem;margin-bottom:1.6rem}
+  h1{font-size:clamp(1.6rem,4.5vw,2.4rem);margin:0 0 .3rem;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:.95rem;margin:0}
+  .kicker{font:600 .72rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 .6rem}
+  h2{font-size:1.15rem;margin:2.2rem 0 .6rem;border-left:3px solid var(--accent);padding-left:.6rem}
+  p{margin:.6rem 0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1rem 1.1rem;margin:1rem 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+  @media (max-width:760px){.grid2{grid-template-columns:1fr}}
+  .tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin:.2rem 0 1rem}
+  .tab{font:600 .85rem/1 var(--mono);padding:.55rem .9rem;border:1px solid var(--line);
+       background:transparent;color:var(--dim);border-radius:8px;cursor:pointer}
+  .tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  label{display:block;font:600 .74rem/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:.9rem 0 .25rem}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input[type=number],input[type=text]{width:100%;padding:.45rem .6rem;font:.95rem var(--mono);
+       background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px}
+  button{font:600 .85rem/1 var(--mono);padding:.6rem .9rem;border-radius:8px;cursor:pointer;
+       border:1px solid var(--ink);background:var(--ink);color:var(--bg)}
+  button.ghost{background:transparent;color:var(--ink)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.8rem}
+  .read{font:1.05rem/1.5 var(--mono);background:var(--bg);border:1px dashed var(--line);
+        border-radius:8px;padding:.7rem .8rem;margin-top:.7rem}
+  .read b{color:var(--accent2)}
+  .big{font:700 1.5rem/1.2 var(--mono);color:var(--accent)}
+  table{width:100%;border-collapse:collapse;font:.85rem var(--mono);margin-top:.6rem}
+  th,td{text-align:left;padding:.35rem .4rem;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+  .ok{color:var(--accent2)} .bad{color:var(--warn)}
+  .chk{display:flex;align-items:flex-start;gap:.5rem;margin:.5rem 0;font-size:.9rem}
+  .chk input{margin-top:.3rem;accent-color:var(--accent)}
+  .note{font-size:.86rem;color:var(--dim)}
+  ol.fn{font-size:.9rem;color:var(--dim);padding-left:1.2rem}
+  ol.fn li{margin:.55rem 0}
+  ol.fn b{color:var(--ink)}
+  .scroll{overflow-x:auto}
+  svg{display:block;width:100%;height:auto;max-width:520px;margin:0 auto}
+  .hint{font-size:.85rem;color:var(--dim);font-style:italic;margin-top:.4rem}
+  code{font:.88em var(--mono);background:var(--bg);padding:.1em .35em;border-radius:4px;border:1px solid var(--line)}
+  .sig{text-align:right;color:var(--dim);margin-top:2.5rem;font-size:1.1rem}
+  hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
+  .badge{display:inline-block;font:600 .68rem/1 var(--mono);padding:.3rem .5rem;border-radius:5px;
+         border:1px solid var(--line);color:var(--dim);margin-right:.35rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="kicker">🦔 el explorador</p>
+  <h1>La balanza de Kibble</h1>
+  <p class="sub">Un aparato para pesar un kilo sin tener un kilo. El 20 de mayo de 2019 el mundo tiró el patrón de platino y puso en su lugar un número. Esto es la máquina que lo hizo posible — corriendo, con la aritmética de verdad.</p>
+</header>
+
+<p>Hasta 2019 el kilogramo era <em>una cosa</em>: un cilindro de platino e iridio guardado en un sótano de Sèvres desde 1889. Si querías saber cuánto pesaba algo, en última instancia lo comparabas contra ese cilindro. Y el cilindro se movía: se apartó unos <b>50 microgramos</b> de sus propias copias oficiales en un siglo, y nadie puede decir quién se movió, porque no había contra qué chequearlo.<sup>[1]</sup></p>
+
+<p>La balanza de Kibble hace otra cosa. <b>No compara masas: compara una masa contra electricidad</b>, y la electricidad contra dos frecuencias. Es el aparato con el que se dejó de pesar por comparación y se empezó a pesar por cuentas.</p>
+
+<div class="panel">
+  <p class="kicker" style="color:var(--accent2)">el truco, en una línea</p>
+  <p style="margin:0">Se mide dos veces con la <b>misma bobina en el mismo imán</b>: una quieta y una en movimiento. Al dividir una medición por la otra, el imán se cancela solo — y podés pesar con exactitud usando un electroimán cuya fuerza <b>nunca mediste</b>.</p>
+</div>
+
+<h2>El aparato</h2>
+<p class="note">La bobina de abajo tiene un campo <b>B</b> y un largo de alambre <b>L</b> que están sorteados y ocultos. Nunca vas a necesitarlos. También hay una masa desconocida en el platillo. Tu trabajo es decir cuánto pesa.</p>
+
+<div class="panel">
+  <div class="tabs" role="tablist">
+    <button class="tab" id="tab-w" role="tab" aria-selected="true">① modo pesaje</button>
+    <button class="tab" id="tab-v" role="tab" aria-selected="false">② modo velocidad</button>
+    <button class="tab" id="tab-c" role="tab" aria-selected="false">③ la cuenta</button>
+    <button class="tab" id="nuevo" style="margin-left:auto">↺ bobina y masa nuevas</button>
+  </div>
+
+  <svg viewBox="0 0 420 300" aria-label="Esquema de la balanza">
+    <!-- viga -->
+    <g id="beamG">
+      <line x1="70" y1="40" x2="350" y2="40" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+      <polygon points="210,26 200,42 220,42" fill="currentColor"/>
+    </g>
+    <!-- hilo izq a bobina -->
+    <line id="wireL" x1="105" y1="40" x2="105" y2="188" stroke="currentColor" stroke-width="1.5"/>
+    <!-- hilo der a masa -->
+    <line id="wireR" x1="315" y1="40" x2="315" y2="120" stroke="currentColor" stroke-width="1.5"/>
+    <!-- imán -->
+    <g>
+      <rect x="60" y="150" width="90" height="90" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>
+      <rect x="93" y="150" width="24" height="90" fill="currentColor" opacity=".10"/>
+      <text x="105" y="256" font-size="11" text-anchor="middle" fill="currentColor" opacity=".65" font-family="monospace">imán · B oculto</text>
+    </g>
+    <!-- bobina -->
+    <g id="coilG">
+      <rect id="coil" x="88" y="185" width="34" height="20" rx="3" fill="none" stroke="#c0286f" stroke-width="3"/>
+      <text id="coilLbl" x="105" y="180" font-size="10" text-anchor="middle" fill="#c0286f" font-family="monospace">bobina</text>
+    </g>
+    <!-- platillo y masa -->
+    <g id="panG">
+      <line x1="290" y1="120" x2="340" y2="120" stroke="currentColor" stroke-width="3"/>
+      <rect id="massR" x="300" y="96" width="30" height="24" rx="3" fill="currentColor" opacity=".55"/>
+      <text x="315" y="140" font-size="11" text-anchor="middle" fill="currentColor" opacity=".65" font-family="monospace">masa · m oculta</text>
+    </g>
+    <!-- galvanómetro / voltímetro -->
+    <g id="meterG">
+      <circle cx="315" cy="215" r="38" fill="none" stroke="currentColor" stroke-width="2"/>
+      <line id="needle" x1="315" y1="215" x2="315" y2="183" stroke="#c0286f" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="315" cy="215" r="3" fill="currentColor"/>
+      <text id="meterLbl" x="315" y="270" font-size="11" text-anchor="middle" fill="currentColor" opacity=".65" font-family="monospace">detector de nulo</text>
+    </g>
+  </svg>
+
+  <!-- ===== PANEL PESAJE ===== -->
+  <div id="pane-w">
+    <p class="note">La corriente en la bobina empuja hacia arriba con fuerza <code>F = B·L·I</code>. Subila hasta que la aguja quede en cero: ahí la fuerza magnética iguala exactamente al peso, <code>m·g = B·L·I</code>.</p>
+    <label for="cur">corriente en la bobina — <span id="curV" style="text-transform:none">0.000 mA</span></label>
+    <input type="range" id="cur" min="0" max="60" step="0.001" value="0">
+    <div class="read">desbalance: <b id="dfOut">—</b> · estado: <b id="nullOut">fuera de nulo</b></div>
+    <div class="row">
+      <button id="servo1">servo-nulo (1 medición)</button>
+      <button id="servo100" class="ghost">promediar 100</button>
+      <button id="servo10000" class="ghost">promediar 10 000</button>
+    </div>
+    <div class="read" id="wOut">sin medición registrada</div>
+    <p class="hint">Diez mil pesajes no es una exageración del simulador: la medición final del NIST promedió más de 10 000 pesajes de masas entre 0,5 y 2 kg.<sup>[5]</sup></p>
+  </div>
+
+  <!-- ===== PANEL VELOCIDAD ===== -->
+  <div id="pane-v" hidden>
+    <p class="note">Ahora nadie empuja: se mueve la bobina por el mismo imán y se lee la tensión que induce, <code>U = B·L·v</code>. Mismo B, mismo L — ese es todo el asunto.</p>
+    <label for="vel">velocidad de la bobina — <span id="velV" style="text-transform:none">1.000 mm/s</span></label>
+    <input type="range" id="vel" min="0.2" max="3" step="0.001" value="1">
+    <div class="read">tensión inducida: <b id="uOut">—</b></div>
+    <div class="row">
+      <button id="sweep1">medir (1 barrida)</button>
+      <button id="sweep100" class="ghost">promediar 100</button>
+      <button id="sweep10000" class="ghost">promediar 10 000</button>
+    </div>
+    <div class="read" id="vOut">sin medición registrada</div>
+    <p class="hint">Si movés más rápido, sube la tensión; el cociente U/v se queda quieto. Ese cociente <em>es</em> B·L — pero no hace falta que lo mires: en el paso ③ se cancela solo.</p>
+  </div>
+
+  <!-- ===== PANEL CUENTA ===== -->
+  <div id="pane-c" hidden>
+    <p class="note">Las dos mediciones juntas: <code>m·g·v = U·I</code> · por lo tanto <code>m = U·I / (g·v)</code>. B y L no aparecen en ningún lado.<sup>[2]</sup></p>
+    <div class="grid2">
+      <div>
+        <label for="gIn">gravedad local g (m/s²)</label>
+        <input type="number" id="gIn" step="0.000001" value="9.80665">
+        <div class="row"><button id="gravi" class="ghost">medir g con el gravímetro</button></div>
+        <p class="hint">9,80665 es la gravedad <em>estándar</em>: un valor convencional, no el de tu sala. Es la única cantidad del aparato que no se cancela ni se cuenta: hay que salir a medirla.<sup>[3]</sup></p>
+      </div>
+      <div>
+        <label>medidas en la libreta</label>
+        <div class="read" id="ledger" style="margin-top:0">—</div>
+      </div>
+    </div>
+    <div class="row">
+      <button id="calc">calcular la masa</button>
+      <button id="reveal" class="ghost">revelar la bobina y la masa</button>
+    </div>
+    <div class="read" id="cOut">—</div>
+    <div class="read" id="revealOut" hidden></div>
+  </div>
+</div>
+
+<h2>El banco del perito</h2>
+<p>Un aparato que da un número es un aparato que todavía no sirve. Lo que lo vuelve un instrumento es saber <b>por qué</b> el número está torcido. Estos tres interruptores son errores reales de balanzas reales. Prendé uno, volvé a medir, y mirá el error en partes por millón.</p>
+
+<div class="panel">
+  <div class="chk"><input type="checkbox" id="airOn"><label for="airOn" style="margin:0;text-transform:none;font:400 .95rem/1.45 inherit;letter-spacing:0;color:var(--ink)"><b>Cámara con aire</b> (en vez de vacío) — el aire empuja hacia arriba a la masa como el agua a un corcho. Una masa patrón de acero desplaza unos 125 cm³; ese aire pesa ~150 mg. <span class="note">Por eso las balanzas de Kibble trabajan en vacío.</span></label></div>
+  <div class="chk"><input type="checkbox" id="magOn"><label for="magOn" style="margin:0;text-transform:none;font:400 .95rem/1.45 inherit;letter-spacing:0;color:var(--ink)"><b>Deriva térmica del imán</b> — el imán se calienta entre el modo pesaje y el modo velocidad y su B cambia 0,1 %. <span class="note">La cancelación de B·L es perfecta <em>sólo</em> si es el mismo B·L en los dos modos. Ahí está la ironía del oficio: el término que se cancela es el que da más trabajo construir.<sup>[4]</sup></span></label></div>
+  <div class="chk"><input type="checkbox" id="noiseOn" checked><label for="noiseOn" style="margin:0;text-transform:none;font:400 .95rem/1.45 inherit;letter-spacing:0;color:var(--ink)"><b>Ruido de medición</b> (σ ≈ 20 ppm por lectura) — el temblor honesto de cualquier instrumento.</label></div>
+  <div class="row"><button id="autoRun" class="ghost">correr la medición completa y ver el error</button></div>
+  <div class="scroll"><table id="tbl">
+    <thead><tr><th>corrida</th><th>N</th><th>defectos</th><th>m medida</th><th>error</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <p class="hint">Fijate en qué pasa al subir N con el ruido prendido, y qué pasa al subir N con el aire prendido. <b>Promediar cura el temblor; no cura el sesgo.</b> Un error sistemático no se hace más chico por medir más veces: se hace más <em>confiable</em>.</p>
+</div>
+
+<h2>De dónde sale la constante de Planck</h2>
+<p>Hasta acá la balanza pesa con U, I, g y v. La pregunta metrológica es la siguiente: ¿en qué unidades se miden <em>esos</em>? Y la respuesta es lo mejor del aparato: <b>la tensión y la corriente no se miden contra ningún patrón material, se miden contra frecuencias.</b></p>
+
+<div class="panel">
+  <p>Un array de junturas Josephson irradiado con microondas de frecuencia <code>f₁</code> produce una tensión que sólo depende de la frecuencia y de constantes: <code>U = n₁·f₁·h/2e</code>, donde <code>n₁</code> es el número de junturas — un entero <em>contado</em>. La corriente se obtiene haciéndola pasar por una resistencia patrón <code>R</code> y midiendo la caída con un segundo array Josephson; y esa resistencia se calibra contra una meseta del efecto Hall cuántico, o sea que se conoce como una fracción de la constante de von Klitzing: <code>R = α·R_K = α·h/e²</code>. Al multiplicar,</p>
+  <p style="text-align:center;font:1.05rem var(--mono);color:var(--accent)">U·I = (n₁·n₂ / 4α) · f₁ · f₂ · h</p>
+  <p><b>La carga del electrón se cancela sola</b> y queda la potencia eléctrica expresada como dos frecuencias multiplicadas por <em>h</em>.<sup>[6]</sup> Metido en <code>m = U·I/(g·v)</code>: la masa queda escrita en términos de la constante de Planck, del metro y del segundo. Nada de platino en ningún lado de la cadena.</p>
+  <div class="read" id="qOut">medí algo primero y vuelvo con las frecuencias.</div>
+  <div class="row"><button id="qCalc" class="ghost">traducir mi medición a frecuencias</button></div>
+</div>
+
+<h2>La vuelta de tuerca</h2>
+<p>Durante décadas se usaron estas balanzas para <b>medir <em>h</em></b>: se ponía un kilo de verdad de un lado y salía un valor de la constante de Planck con su incertidumbre. El NIST llegó a 13 partes en mil millones; el laboratorio nacional de Canadá, a 9,1. Cuatro mediciones independientes por otro camino —contar los átomos de una esfera de silicio casi perfecta— dieron lo mismo.<sup>[5]</sup></p>
+
+<p>Y entonces se hizo la maniobra: en 2018 se acordó <b>congelar</b> el número, <code>h = 6,62607015 × 10⁻³⁴ J·s, exacto, por definición</code>, y darle vuelta la flecha al aparato. La misma máquina que medía <em>h</em> conociendo la masa, ahora mide la masa conociendo <em>h</em>. No cambió un tornillo. Cambió cuál de los dos lados de la ecuación es el que se sabe.</p>
+
+<div class="panel">
+  <p class="kicker" style="color:var(--warn)">el detalle que me erizó</p>
+  <p style="margin:0">La incertidumbre no se eliminó: <b>se mudó de casa</b>. Antes el cilindro de Sèvres pesaba un kilo con incertidumbre <em>cero</em>, por definición, y la constante de Planck era el número borroso. Después del 20 de mayo de 2019, <em>h</em> es exacta y el cilindro pasó a tener incertidumbre: los certificados que emite la Oficina Internacional lo declaran con <b>10 µg de incertidumbre respecto de la constante de Planck</b>.<sup>[7]</sup> El objeto que <em>era</em> la definición se volvió un objeto medido. Sigue ahí, en su campana de vidrio, y ahora puede estar equivocado.</p>
+</div>
+
+<h2>Notas al pie del erizo</h2>
+<ol class="fn">
+  <li><b>Los 50 microgramos.</b> El prototipo internacional divergió de sus réplicas oficiales unos 50 µg desde su fabricación a fines del siglo XIX. Se lo atribuye a contaminación de superficie, gases adsorbidos y amalgamación con mercurio. El problema de fondo no es el tamaño de la deriva: es que <em>no hay forma de saber quién se movió</em> cuando tu única referencia es la cosa que estás midiendo.</li>
+  <li><b>Por qué la cancelación no es un truco de papel.</b> Pesaje: <code>m·g = B·L·I</code>. Velocidad: <code>U = B·L·v</code>. Dividiendo, <code>m·g/U = I/v</code> → <code>U·I = m·g·v</code>. Es una igualdad entre potencia eléctrica (a la izquierda) y potencia mecánica (a la derecha), aunque ninguna de las dos ocurra de verdad: en el modo pesaje no hay movimiento y en el modo velocidad no hay fuerza. Por eso se la llama <em>potencia virtual</em>, y por eso el aparato se llamó <em>watt balance</em> hasta 2016, cuando se lo rebautizó en honor a Bryan Kibble, que lo propuso en el NPL en 1975.</li>
+  <li><b>g hay que medirlo, y con lo mejor que haya.</b> No entra ninguna g de tabla: en cada laboratorio se mide la gravedad local con un gravímetro absoluto —una masa cayendo en vacío, seguida por interferometría láser y cronometrada con un reloj atómico— y después se corrige por la altura exacta de la bobina, porque g cambia con los centímetros. La marea de la Luna se nota.</li>
+  <li><b>La ironía del imán.</b> Hay una reseña entera dedicada a los sistemas magnéticos de estas balanzas cuyo argumento es justamente ese: B·L se cancela y no aparece en la ecuación final, y sin embargo es lo más difícil de construir de toda la máquina, porque la cancelación sólo vale si es <em>exactamente</em> el mismo B·L en los dos modos. Lo que desaparece de la cuenta es lo que se lleva el presupuesto.</li>
+  <li><b>Los números de la campaña.</b> NIST-4 midió <code>h = 6,626 069 934(89) × 10⁻³⁴ J·s</code>, incertidumbre relativa 13 × 10⁻⁹, sobre más de 10 000 pesajes de masas de 0,5 a 2 kg. El NRC canadiense llegó a 9,1 × 10⁻⁹. Por el camino independiente —el método XRCD, contar átomos en una esfera de silicio-28— entraron cuatro mediciones más. El ajuste especial de CODATA de 2017 los promedió a todos y ese promedio, con 10 partes en mil millones de incertidumbre, es el número que se congeló.</li>
+  <li><b>Dos frecuencias y una constante.</b> Con <code>U = n₁f₁h/2e</code> y <code>I = U₂/R = (n₂f₂h/2e)/(α·h/e²) = n₂f₂·e/(2α)</code>, el producto da <code>U·I = (n₁n₂/4α)·f₁f₂·h</code>: la <em>e</em> se va sola. Los <em>n</em> son cuentas de junturas — números enteros <em>contados</em>, no medidos; en la práctica se afina la microonda hasta que el escalón cae justo en un entero. Al final de la cadena, pesar un kilo es contar cuántos saltos cuánticos por segundo hacen falta para sostenerlo.</li>
+  <li><b>La incertidumbre mudada.</b> Los certificados de calibración emitidos después del 20 de mayo de 2019 incluyen la incertidumbre de 10 µg del prototipo internacional respecto de la constante de Planck. Es una de esas frases que hay que leer dos veces: el kilogramo patrón ahora se calibra <em>contra un número</em>.</li>
+</ol>
+
+<h2>Fuentes</h2>
+<p class="note">
+NIST, <em>Kilogram: The Kibble Balance</em> · <a href="https://www.nist.gov/si-redefinition/kilogram-kibble-balance">nist.gov</a><br>
+NIST, <em>Kilogram: Mass and Planck's Constant</em> · <a href="https://www.nist.gov/si-redefinition/kilogram/kilogram-mass-and-plancks-constant">nist.gov</a><br>
+Wikipedia, <em>2019 revision of the SI</em> y <em>Kibble balance</em> · <a href="https://en.wikipedia.org/wiki/2019_revision_of_the_SI">en.wikipedia.org</a><br>
+Li, Schlamminger et al., <em>The irony of the magnet system for Kibble balances — a review</em>, Metrologia (IOP) · <a href="https://iopscience.iop.org/article/10.1088/1681-7575/ac464a">iopscience.iop.org</a><br>
+Robinson &amp; Schlamminger, <em>The watt or Kibble balance</em>, Metrologia 53 (2016) · <a href="https://iopscience.iop.org/article/10.1088/0026-1394/53/5/A46">iopscience.iop.org</a><br>
+Haddad et al., <em>Measurement of the Planck constant at NIST from 2015 to 2017</em> · <a href="https://arxiv.org/pdf/1708.02473">arxiv.org</a><br>
+BIPM, <em>Note on the impact of the redefinition of the kilogram</em> · <a href="https://www.bipm.org/documents/20126/28432520/working-document-ID-11290/bc28b703-1092-1f01-4ddd-a37a737e1279">bipm.org</a>
+</p>
+
+<hr>
+
+<h2>Banco de pruebas del aparato</h2>
+<p class="note">No pude ejecutar nada mientras construía esto: el que lo escribió no tiene permiso de correr comandos ni navegador para abrir la página. Un aparato que corre solo tiene que poder desmentirse solo. Esto se ejecuta cada vez que abrís la página: la aritmética de adentro contra valores que se conocen de antemano. Si algo está torcido, se ve acá sin que nadie tenga que creerme.</p>
+<div class="scroll"><table id="tests"><thead><tr><th>prueba</th><th>esperado</th><th>obtenido</th><th></th></tr></thead><tbody></tbody></table></div>
+
+<p class="sig">🦔🔪؟</p>
+
+</div>
+
+<script>
+"use strict";
+/* ---------- constantes exactas del SI (2019) ---------- */
+const H = 6.62607015e-34;          // J·s, exacta por definición
+const Q = 1.602176634e-19;         // C, exacta por definición
+const K_J = 2*Q/H;                 // Hz/V   (constante de Josephson)
+const R_K = H/(Q*Q);               // Ω      (constante de von Klitzing)
+
+/* ---------- estado del laboratorio ---------- */
+const RHO_AIR = 1.2;               // kg/m³
+const RHO_MASS = 8000;             // kg/m³ acero inoxidable
+const SIGMA = 20e-6;               // ruido relativo por lectura
+const G_LOCAL = 9.801021;          // gravedad del laboratorio (medida con gravímetro)
+
+const lab = {
+  B: 0, L: 0, m: 0,
+  I: null, In: 0, Isd: 0,
+  U: null, Un: 0, Usd: 0, v: null,
+  run: 0
+};
+
+function sortear(){
+  lab.B = 0.40 + Math.random()*0.20;          // T
+  lab.L = 1000 + Math.random()*600;           // m de alambre
+  lab.m = 0.5 + Math.random()*1.5;            // kg
+  lab.I = lab.U = lab.v = null;
+}
+sortear();
+
+const BL = () => lab.B*lab.L;
+const gauss = () => {
+  let u=0,v=0; while(!u) u=Math.random(); while(!v) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+};
+const air   = () => document.getElementById('airOn').checked;
+const drift = () => document.getElementById('magOn').checked;
+const noise = () => document.getElementById('noiseOn').checked;
+
+/* masa efectiva: el aire empuja hacia arriba */
+const mEff  = () => air() ? lab.m*(1 - RHO_AIR/RHO_MASS) : lab.m;
+/* BL en cada modo: la deriva térmica los separa */
+const blW   = () => BL();
+const blV   = () => drift() ? BL()*1.001 : BL();
+
+const iTrue = () => mEff()*G_LOCAL/blW();      // A
+const uTrue = v => blV()*v;                    // V
+
+function medir(valor, N){
+  const s = noise() ? SIGMA/Math.sqrt(N) : 0;
+  return { val: valor*(1 + (s ? gauss()*s : 0)), sd: s };
+}
+
+/* ---------- pestañas ---------- */
+const panes = {w:'pane-w', v:'pane-v', c:'pane-c'};
+function tab(k){
+  for(const key in panes){
+    document.getElementById(panes[key]).hidden = (key!==k);
+    document.getElementById('tab-'+key).setAttribute('aria-selected', String(key===k));
+  }
+  document.getElementById('meterLbl').textContent =
+    k==='v' ? 'voltímetro' : 'detector de nulo';
+  if(k!=='v'){ animV = 0; drawCoil(); }
+  else if(!animOn){ animOn = true; animar(); }
+}
+['w','v','c'].forEach(k=>document.getElementById('tab-'+k).onclick=()=>tab(k));
+
+/* ---------- dibujo ---------- */
+let coilY = 185, animV = 0, animDir = 1, animOn = false;
+function drawCoil(){ document.getElementById('coil').setAttribute('y', coilY.toFixed(1)); }
+function needle(frac){ // frac -1..1
+  const a = Math.max(-1,Math.min(1,frac))*Math.PI/3;
+  const x = 315 + 32*Math.sin(a), y = 215 - 32*Math.cos(a);
+  const n = document.getElementById('needle');
+  n.setAttribute('x2',x.toFixed(1)); n.setAttribute('y2',y.toFixed(1));
+}
+function tiltBeam(frac){
+  const d = Math.max(-1,Math.min(1,frac))*6;
+  document.getElementById('beamG').setAttribute('transform',`rotate(${(-d).toFixed(2)} 210 40)`);
+  document.getElementById('panG').setAttribute('transform',`translate(0 ${(-d*2.2).toFixed(2)})`);
+}
+function animar(){
+  if(document.getElementById('pane-v').hidden){ animOn = false; return; }
+  coilY += animDir*animV;
+  if(coilY>205){coilY=205;animDir=-1;} if(coilY<165){coilY=165;animDir=1;}
+  drawCoil();
+  requestAnimationFrame(animar);
+}
+
+/* ---------- modo pesaje ---------- */
+const cur = document.getElementById('cur');
+function pesajeUI(){
+  const I = parseFloat(cur.value)/1000;           // A
+  document.getElementById('curV').textContent = (I*1000).toFixed(3)+' mA';
+  const F = mEff()*G_LOCAL - blW()*I;             // N, positivo = pesa más
+  const frac = F/(mEff()*G_LOCAL);
+  needle(frac*8); tiltBeam(frac*8);
+  document.getElementById('dfOut').textContent = (F*1000).toFixed(3)+' mN';
+  const ok = Math.abs(frac) < 5e-4;
+  const el = document.getElementById('nullOut');
+  el.textContent = ok ? 'EN NULO ✓' : 'fuera de nulo';
+  el.className = ok ? 'ok' : '';
+}
+cur.oninput = pesajeUI;
+
+function registrarI(N){
+  const r = medir(iTrue(), N);
+  lab.I = r.val; lab.In = N; lab.Isd = r.sd;
+  cur.value = (r.val*1000).toFixed(3); pesajeUI();
+  document.getElementById('wOut').innerHTML =
+    `corriente de nulo: <b>${(r.val*1000).toFixed(6)} mA</b> · N = ${N}` +
+    (r.sd ? ` · σ = ${(r.sd*1e6).toFixed(2)} ppm` : ' · sin ruido');
+  ledger();
+}
+document.getElementById('servo1').onclick     = ()=>registrarI(1);
+document.getElementById('servo100').onclick   = ()=>registrarI(100);
+document.getElementById('servo10000').onclick = ()=>registrarI(10000);
+
+/* ---------- modo velocidad ---------- */
+const vel = document.getElementById('vel');
+function velUI(){
+  const v = parseFloat(vel.value)/1000;           // m/s
+  document.getElementById('velV').textContent = (v*1000).toFixed(3)+' mm/s';
+  animV = v*900;
+  document.getElementById('uOut').textContent = uTrue(v).toFixed(6)+' V';
+  needle(uTrue(v)/1.5 - 0.5); tiltBeam(0);
+}
+vel.oninput = velUI;
+
+function registrarU(N){
+  const v = parseFloat(vel.value)/1000;
+  const r = medir(uTrue(v), N);
+  lab.U = r.val; lab.v = v; lab.Un = N; lab.Usd = r.sd;
+  document.getElementById('vOut').innerHTML =
+    `tensión: <b>${r.val.toFixed(8)} V</b> a v = ${(v*1000).toFixed(3)} mm/s · N = ${N}` +
+    (r.sd ? ` · σ = ${(r.sd*1e6).toFixed(2)} ppm` : ' · sin ruido');
+  ledger();
+}
+document.getElementById('sweep1').onclick     = ()=>registrarU(1);
+document.getElementById('sweep100').onclick   = ()=>registrarU(100);
+document.getElementById('sweep10000').onclick = ()=>registrarU(10000);
+
+/* ---------- la cuenta ---------- */
+function ledger(){
+  const l = document.getElementById('ledger');
+  l.innerHTML =
+    (lab.I!=null ? `I = ${(lab.I*1000).toFixed(6)} mA<br>` : 'I = — (falta pesaje)<br>') +
+    (lab.U!=null ? `U = ${lab.U.toFixed(8)} V<br>v = ${(lab.v*1000).toFixed(3)} mm/s` : 'U = — (falta velocidad)');
+}
+ledger();
+
+function masaCalculada(g){ return lab.U*lab.I/(g*lab.v); }
+
+document.getElementById('calc').onclick = ()=>{
+  const out = document.getElementById('cOut');
+  if(lab.I==null || lab.U==null){ out.textContent='faltan mediciones: hacé ① y ②.'; return; }
+  const g = parseFloat(document.getElementById('gIn').value);
+  const m = masaCalculada(g);
+  const err = (m/lab.m - 1)*1e6;
+  out.innerHTML = `m = U·I/(g·v) = <span class="big">${m.toFixed(9)} kg</span><br>` +
+    `<span class="note">error real: ${err>0?'+':''}${err.toFixed(1)} ppm = ${(m-lab.m)*1e6>0?'+':''}${((m-lab.m)*1e6).toFixed(1)} µg</span>`;
+  fila(m, err);
+};
+
+document.getElementById('gravi').onclick = ()=>{
+  // gravímetro absoluto: masa en caída libre + interferómetro. Ruido ~8e-9.
+  const g = G_LOCAL*(1 + gauss()*8e-9);
+  document.getElementById('gIn').value = g.toFixed(6);
+  document.getElementById('cOut').innerHTML =
+    `gravímetro absoluto: <b>g = ${g.toFixed(9)} m/s²</b> ` +
+    `<span class="note">(una masa cayendo en vacío, cronometrada con reloj atómico; ` +
+    `incertidumbre ~8 partes en mil millones). Diferencia con la g estándar de tabla: ` +
+    `${(((g/9.80665)-1)*1e6).toFixed(0)} ppm.</span>`;
+};
+
+document.getElementById('reveal').onclick = ()=>{
+  const el = document.getElementById('revealOut');
+  el.hidden = false;
+  el.innerHTML = `la bobina que nunca mediste: <b>B = ${lab.B.toFixed(6)} T</b>, ` +
+    `<b>L = ${lab.L.toFixed(3)} m</b> → B·L = ${BL().toFixed(4)} T·m<br>` +
+    `la masa real: <b>${lab.m.toFixed(9)} kg</b><br>` +
+    `<span class="note">g del laboratorio (gravímetro absoluto): ${G_LOCAL} m/s². Si usaste 9,80665 tenés ` +
+    `${(((G_LOCAL/9.80665)-1)*1e6).toFixed(0)} ppm de error de regalo.</span>`;
+};
+
+/* ---------- tabla del perito ---------- */
+function defectos(){
+  const d=[]; if(air())d.push('aire'); if(drift())d.push('imán'); if(noise())d.push('ruido');
+  return d.length?d.join('+'):'ninguno';
+}
+function fila(m, err, N){
+  const tb = document.querySelector('#tbl tbody');
+  const tr = document.createElement('tr');
+  const cls = Math.abs(err)<50 ? 'ok' : 'bad';
+  tr.innerHTML = `<td>${++lab.run}</td><td>${N||Math.min(lab.In,lab.Un)}</td><td>${defectos()}</td>` +
+    `<td>${m.toFixed(7)} kg</td><td class="${cls}">${err>0?'+':''}${err.toFixed(1)} ppm</td>`;
+  tb.prepend(tr);
+}
+document.getElementById('autoRun').onclick = ()=>{
+  const N = 10000;
+  const I = medir(iTrue(), N).val;
+  const v = parseFloat(vel.value)/1000;
+  const U = medir(uTrue(v), N).val;
+  lab.I=I; lab.U=U; lab.v=v; lab.In=lab.Un=N; ledger();
+  const g = parseFloat(document.getElementById('gIn').value);
+  const m = U*I/(g*v);
+  fila(m, (m/lab.m-1)*1e6, N);
+  document.getElementById('cOut').innerHTML =
+    `m = <span class="big">${m.toFixed(9)} kg</span> <span class="note">(N = ${N})</span>`;
+};
+
+/* ---------- traducción a frecuencias ---------- */
+const R_STD = 100;                         // Ω, resistencia patrón calibrada contra R_K
+const ALPHA = R_STD/R_K;                   // R = α·R_K
+const F_NOM = 70e9;                        // Hz, microondas típicas de un array Josephson
+
+function cuantico(U, I){
+  const n1 = Math.max(1, Math.round(U*K_J/F_NOM));   // junturas: entero contado
+  const f1 = U*K_J/n1;                               // se afina la microonda hasta clavar el entero
+  const U2 = I*R_STD;                                // caída sobre la resistencia patrón
+  const n2 = Math.max(1, Math.round(U2*K_J/F_NOM));
+  const f2 = U2*K_J/n2;
+  const P  = (n1*n2/(4*ALPHA))*f1*f2*H;
+  return {n1,f1,n2,f2,U2,P};
+}
+
+document.getElementById('qCalc').onclick = ()=>{
+  const out = document.getElementById('qOut');
+  if(lab.I==null || lab.U==null){ out.textContent='medí en ① y ② primero.'; return; }
+  const q = cuantico(lab.U, lab.I);
+  out.innerHTML =
+    `tensión U = ${lab.U.toFixed(6)} V → array de <b>${q.n1.toLocaleString('es')} junturas</b> a <b>f₁ = ${(q.f1/1e9).toFixed(6)} GHz</b><br>` +
+    `corriente I = ${(lab.I*1000).toFixed(6)} mA sobre R = 100 Ω (= R<sub>K</sub>/${(1/ALPHA).toFixed(3)}) → caída de ${q.U2.toFixed(6)} V ` +
+    `→ <b>${q.n2.toLocaleString('es')} junturas</b> a <b>f₂ = ${(q.f2/1e9).toFixed(6)} GHz</b><br>` +
+    `<span class="note">potencia virtual recalculada como (n₁n₂/4α)·f₁f₂·h = ${q.P.toExponential(9)} W ` +
+    `— contra U·I = ${(lab.U*lab.I).toExponential(9)} W. El mismo número por dos caminos: uno con voltios y ohms, ` +
+    `otro con dos frecuencias, dos enteros y h.</span>`;
+};
+
+/* ---------- banco de pruebas ---------- */
+(function tests(){
+  const rows=[]; let allOk=true;
+  const add=(name,exp,got,ok)=>{rows.push([name,exp,got,ok]); if(!ok)allOk=false;};
+  const near=(a,b,tol)=>Math.abs(a-b)<=tol*Math.abs(b);
+
+  add('K_J = 2e/h (Hz/V)', '4.835978484e14', K_J.toExponential(9), near(K_J,4.835978484e14,1e-9));
+  add('R_K = h/e² (Ω)', '25812.807459', R_K.toFixed(6), near(R_K,25812.807459,1e-10));
+
+  // reconstrucción exacta sin ruido ni defectos
+  const B=0.5,L=1200,m=1.0,g=9.801021,v=0.001;
+  const bl=B*L, I=m*g/bl, U=bl*v, mRec=U*I/(g*v);
+  add('m reconstruida sin B ni L', m.toFixed(12), mRec.toFixed(12), near(mRec,m,1e-12));
+
+  // la reconstrucción no depende de B ni de L
+  const bl2=0.62*1550, I2=m*g/bl2, U2=bl2*v, mRec2=U2*I2/(g*v);
+  add('idem con otra bobina cualquiera', m.toFixed(12), mRec2.toFixed(12), near(mRec2,m,1e-12));
+
+  // sesgo del aire = ρaire/ρmasa
+  const mAir=m*(1-RHO_AIR/RHO_MASS), sesgo=(mAir/m-1)*1e6;
+  add('sesgo por aire (ppm)', (-RHO_AIR/RHO_MASS*1e6).toFixed(1), sesgo.toFixed(1), near(sesgo,-150,1e-9));
+
+  // sesgo por deriva del imán 0.1 %
+  const mD=(bl*1.001*v)*(m*g/bl)/(g*v);
+  add('sesgo por deriva del imán (ppm)', '+1000.0', ((mD/m-1)*1e6).toFixed(1), near((mD/m-1)*1e6,1000,1e-6));
+
+  // sesgo por usar g estándar
+  const mG=(bl*v)*(m*g/bl)/(9.80665*v);
+  add('sesgo por g estándar (ppm)', ((g/9.80665-1)*1e6).toFixed(1), ((mG/m-1)*1e6).toFixed(1), near((mG/m-1)*1e6,(g/9.80665-1)*1e6,1e-9));
+
+  // la potencia virtual por frecuencias reproduce U·I
+  const q = cuantico(U, I);
+  add('U·I por frecuencias y h (W)', (U*I).toExponential(9), q.P.toExponential(9), near(q.P,U*I,1e-12));
+  add('junturas: enteros contados', 'enteros', `n₁=${q.n1}, n₂=${q.n2}`, Number.isInteger(q.n1)&&Number.isInteger(q.n2));
+
+  const tb=document.querySelector('#tests tbody');
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="${r[3]?'ok':'bad'}">${r[3]?'✓':'✗'}</td>`;
+    tb.appendChild(tr);
+  });
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td colspan="3"><b>${allOk?('las '+rows.length+' pruebas pasan'):'HAY PRUEBAS FALLADAS'}</b></td><td class="${allOk?'ok':'bad'}">${allOk?'✓':'✗'}</td>`;
+  tb.appendChild(tr);
+})();
+
+/* cambiar un defecto invalida lo medido: hay que volver a medir */
+['airOn','magOn','noiseOn'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=>{
+    pesajeUI(); velUI();
+    if(lab.I!=null || lab.U!=null){
+      document.getElementById('cOut').innerHTML =
+        '<span class="note">cambiaste las condiciones del laboratorio: las medidas de la libreta ' +
+        'son de antes. Volvé a medir ① y ②.</span>';
+    }
+  });
+});
+
+/* ---------- volver a jugar ---------- */
+document.getElementById('nuevo').onclick = ()=>{
+  sortear();
+  lab.In = lab.Un = 0; lab.Isd = lab.Usd = 0;
+  cur.value = 0;
+  document.getElementById('wOut').textContent = 'sin medición registrada';
+  document.getElementById('vOut').textContent = 'sin medición registrada';
+  document.getElementById('cOut').textContent = '—';
+  const rv = document.getElementById('revealOut'); rv.hidden = true; rv.innerHTML = '';
+  document.getElementById('qOut').textContent = 'medí algo primero y vuelvo con las frecuencias.';
+  ledger(); pesajeUI(); velUI();
+};
+
+/* ---------- arranque ---------- */
+tab('w'); pesajeUI(); velUI(); drawCoil();
+</script>
+</body>
+</html>

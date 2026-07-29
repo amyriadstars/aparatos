@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El comma que no cierra — doce quintas, siete octavas y el sobrante</title>
+<style>
+:root{
+  --bg:#faf7f2; --ink:#1e1c1a; --dim:#6a635c; --line:#d9d1c6;
+  --card:#fffdf9; --accent:#b5462f; --accent2:#2f6b7a; --ok:#2f7a4a; --warn:#b07d15;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 8px 24px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#15171a; --ink:#e9e5df; --dim:#9b948c; --line:#2e3238;
+    --card:#1b1e22; --accent:#e8795c; --accent2:#6fc0d4; --ok:#68c48c; --warn:#e0b24e;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3);}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.6 ui-serif,Georgia,"Iowan Old Style",serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:32px 20px 80px}
+h1{font-size:clamp(26px,5vw,40px);line-height:1.15;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:clamp(19px,3vw,24px);margin:48px 0 4px;letter-spacing:-.01em}
+h3{font-size:15px;margin:22px 0 6px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
+.sub{color:var(--dim);font-style:italic;margin:0 0 28px}
+p{margin:10px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 18px;margin:16px 0;box-shadow:var(--shadow)}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13.5px}
+.small{font-size:14px;color:var(--dim)}
+.hero{border-left:3px solid var(--accent);padding-left:14px;margin:18px 0}
+button{font:inherit;font-size:14px;background:var(--card);color:var(--ink);border:1px solid var(--line);
+  border-radius:8px;padding:7px 12px;cursor:pointer;transition:.12s}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+button.on:hover{color:#fff;opacity:.9}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+label.knob{display:block;margin:14px 0 4px;font-size:14px;color:var(--dim)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+th,td{text-align:right;padding:4px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.big{font-size:clamp(28px,7vw,52px);font-family:ui-monospace,Menlo,monospace;letter-spacing:-.03em;line-height:1.1}
+.pass{color:var(--ok)} .fail{color:var(--accent);font-weight:700}
+.wolf{color:var(--accent);font-weight:700}
+svg{display:block;max-width:100%;height:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.fn{font-size:13.5px;color:var(--dim);border-top:1px solid var(--line);padding-top:14px;margin-top:36px}
+.fn ol{padding-left:20px;margin:8px 0}
+.fn li{margin:6px 0}
+a{color:var(--accent2)}
+.keybtn{min-width:56px;text-align:center;font-family:ui-monospace,Menlo,monospace}
+.badge{display:inline-block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+  padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--dim);vertical-align:middle}
+canvas{width:100%;height:110px;display:block;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>El comma que no cierra</h1>
+<p class="sub">Doce quintas, siete octavas, y un sobrante de 23,46 centésimas que nadie puede sacarse de encima. Un aparato para repartirlo y escuchar quién paga.</p>
+
+<div class="hero">
+<p>Afinás un piano de la manera obvia: agarrás la quinta, el intervalo más limpio después de la octava, y vas encadenando. Do–Sol, Sol–Re, Re–La… doce quintas y volvés a Do, siete octavas más arriba.</p>
+<p><strong>No volvés.</strong> Caés un poco más arriba, y el «poco» es siempre el mismo, y no hay manera de afinar mejor para arreglarlo. El problema no es el pulso del afinador: es aritmética.</p>
+</div>
+
+<div class="card">
+<div class="small">La quinta pura es la razón 3:2. Doce quintas son <span class="mono">(3/2)<sup>12</sup></span>; siete octavas son <span class="mono">2<sup>7</sup></span>.</div>
+<div class="big" id="commaBig">—</div>
+<div class="small" id="commaTxt">—</div>
+<p class="small" style="margin-top:12px">Y no puede dar 1 nunca: <span class="mono">3<sup>12</sup> = 2<sup>19</sup></span> exigiría que un número impar sea par. Por descomposición única en factores primos, ninguna pila de quintas puras cae jamás sobre una octava pura — ni con doce, ni con cincuenta y tres, ni con un millón.<sup>1</sup> El sobrante se llama <strong>comma pitagórico</strong>, y todo lo que sigue son maneras de convivir con él.</p>
+</div>
+
+<h2>1 · El sobrante, a escala y con lupa</h2>
+<p class="small">Arriba, doce quintas puras apiladas contra siete octavas, a escala honesta: no se ve nada, porque el desajuste es el 0,28 % del recorrido. Abajo, el final de las dos barras con lupa de <span id="magTxt">87</span> aumentos. Ese pelo es el comma — y se escucha perfectamente.</p>
+<div class="card" style="padding:8px">
+<svg id="spiral" viewBox="0 0 700 300" role="img" aria-label="Doce quintas puras contra siete octavas, a escala y ampliado"></svg>
+</div>
+
+<h2>2 · La mesa de reparto</h2>
+<p>Si el sobrante no se elimina, la única pregunta que queda es <em>dónde ponerlo</em>. Achicás algunas quintas para hacerle lugar; las que no tocás quedan puras; y lo que no repartiste se acumula en la quinta que quedó última — históricamente <span class="mono">Sol♯–Re♯</span>, la que aúlla. Por eso se la llama <strong>lobo</strong>.</p>
+
+<div class="card">
+<div class="row" id="presets"></div>
+<label class="knob">Cuántas quintas comparten el trabajo: <b id="nVal" class="mono"></b> de 11</label>
+<input type="range" id="nSlider" min="0" max="11" step="1" value="11">
+<label class="knob">Cuánto le saco a cada una: <b id="xVal" class="mono"></b> centésimas <span id="xFrac" class="small"></span></label>
+<input type="range" id="xSlider" min="0" max="800" step="1" value="196">
+<div class="row" style="margin-top:14px">
+  <div class="mono" id="ledger"></div>
+</div>
+</div>
+
+<div class="grid2">
+  <div class="card" style="padding:10px">
+    <svg id="circle" viewBox="0 0 340 340" role="img" aria-label="Círculo de quintas con el desvío de cada una"></svg>
+  </div>
+  <div class="card">
+    <h3>Las doce quintas</h3>
+    <div class="scroll" style="max-height:330px;overflow-y:auto">
+    <table id="fifthTable"><thead><tr><th>quinta</th><th>cents</th><th>vs pura</th><th>bate</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<h2>3 · Quién paga: las doce tonalidades</h2>
+<p>Un acorde mayor es tónica + tercera + quinta. La quinta perdona: aunque la achiques dos centésimas no se queja casi. <strong>La tercera es la delatora.</strong> Está cuatro quintas más arriba, así que cualquier retoque en las quintas le llega multiplicado por cuatro, y el oído la escucha porque el quinto armónico de la tónica y el cuarto de la tercera chocan de frente.</p>
+<p class="small">Barra = cuánto se aparta la tercera de la justa (5:4), en centésimas, con <strong>escala fija</strong> (42 ¢ = barra llena) para que se puedan comparar los temperamentos entre sí. Número al lado = cuántas veces por segundo late ese choque, con la tónica en la octava elegida. Tocá una tonalidad para escucharla.<sup>2</sup> Probá el mesotónico: ocho tonalidades con la barra en cero —terceras perfectas, algo que ningún piano moderno tiene— y cuatro impresentables.</p>
+<div class="card">
+  <div class="row">
+    <span class="small">Octava de la tónica:</span>
+    <button data-oct="-1">Do3</button><button data-oct="0" class="on">Do4</button><button data-oct="1">Do5</button>
+    <span class="small" style="margin-left:auto">▶ suena 2,4 s</span>
+  </div>
+  <div class="scroll">
+  <table id="keyTable"><thead><tr><th>tonalidad</th><th>tercera</th><th>vs justa</th><th>bate</th><th>quinta</th><th>bate</th><th></th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<h2>4 · El oído</h2>
+<p>Dos notas que casi coinciden no suenan «mal»: suenan <em>pulsando</em>. Los dos armónicos que deberían caer en el mismo lugar caen a pocos hertz de distancia, se suman y se cancelan por turnos, y esa alternancia es lo que se oye como aspereza. La cuenta es sorda y exacta: <span class="mono">batido = |f₁ − f₂|</span>.</p>
+<div class="card">
+  <div class="row">
+    <button id="bPureF">quinta pura</button>
+    <button id="bTempF">quinta de este temperamento</button>
+    <button id="bPureT">tercera pura</button>
+    <button id="bTempT">tercera de este temperamento</button>
+    <button id="bBoth">las dos terceras juntas</button>
+  </div>
+  <canvas id="beat" width="900" height="110"></canvas>
+  <div class="small mono" id="beatTxt" style="margin-top:8px">—</div>
+  <p class="small">El dibujo es la <strong>envolvente</strong> de la suma de los dos armónicos en pugna, un segundo de audio. No es la onda: los armónicos andan por los 1300 Hz y en 900 píxeles no entrarían más que moiré. La envolvente sí entra, y sus <strong>nudos son los batidos</strong> — se cuentan con el ojo. Con un intervalo puro no hay nudos: banda entera.</p>
+</div>
+
+<h2>5 · Seis cosas ciertas que traje</h2>
+<div class="card">
+<ol>
+<li><strong>Hay dos sobrantes, no uno.</strong> El comma pitagórico (23,460 ¢) es el desajuste entre quintas y octavas. El <strong>comma sintónico</strong> (81:80, 21,506 ¢) es otro: la distancia entre la tercera que sale de apilar cuatro quintas puras (81/64, 407,8 ¢) y la tercera que el oído llama pura (5/4, 386,3 ¢). Se parecen tanto que su diferencia —el <em>schisma</em>, 1,95 ¢— está por debajo de lo que cualquiera distingue.<sup>3</sup> Casi todo el arte de la afinación histórica es tratar dos problemas distintos con un solo presupuesto.</li>
+<li><strong>El mesotónico compró terceras perfectas y pagó con un aullido.</strong> Achicá cada quinta exactamente un cuarto de comma sintónico (5,377 ¢) y cuatro quintas apiladas caen sobre la tercera justa <em>exacta</em>: 386,3137 ¢, sin error. Ocho tonalidades quedan más limpias que en cualquier piano de hoy. Precio: la quinta de cierre se estira hasta 737,6 ¢ —35,7 ¢ de más— y es inescuchable. Fue el estándar de teclado del Renacimiento y buena parte del Barroco, codificado por Pietro Aaron en 1523.<sup>4</sup></li>
+<li><strong>El «color de las tonalidades» era físicamente real.</strong> En un temperamento desigual como el Werckmeister III (1691) —cuatro quintas achicadas un cuarto de comma pitagórico, las otras ocho puras— ninguna tonalidad aúlla, pero <em>ninguna suena igual a otra</em>: Do queda liso y Fa♯ áspero, con todos los grises intermedios. Cuando los tratadistas del XVIII escribían que una tonalidad era luminosa y otra sombría no estaban haciendo poesía: describían un gradiente medible, que este aparato calcula en la tabla de arriba.<sup>5</sup></li>
+<li><strong>El temperamento igual sacrificó las terceras para salvar las quintas.</strong> Repartir el comma entre las doce deja cada quinta 1,955 ¢ chica: late menos de una vez por segundo, no molesta a nadie. Pero la tercera queda <strong>13,686 ¢ grande</strong>, y late unas diez veces por segundo en el centro del teclado. Todo piano moderno tiene doce terceras mayores desafinadas del mismo modo, y ese zumbido es tan constante que dejamos de oírlo como error.</li>
+<li><strong>Se supo hacerlo dos siglos y medio antes de decidir hacerlo.</strong> Zhu Zaiyu publicó en China el valor exacto del semitono como la raíz doceava de dos en 1584; Simon Stevin llegó a la definición en Europa casi al mismo tiempo, con menos precisión.<sup>6</sup> La adopción general tardó hasta bien entrado el siglo XIX. No era un problema técnico esperando solución: la solución estaba escrita y guardada, y lo que faltaba era estar dispuesto a perder lo que hacía perder.</li>
+<li><strong>El batido no es propiedad del intervalo.</strong> La misma tercera, con exactamente el mismo error en centésimas, late al doble de rápido una octava más arriba: los cents son razones y el batido son hertz. Movés el botón de octava en la tabla y todos los números se duplican mientras las barras no se mueven. Por eso los afinadores nunca trabajaron con «cuánto está desafinado» sino con tablas de cuántos golpes por segundo debe dar cada intervalo en cada lugar del teclado.</li>
+</ol>
+</div>
+
+<h2>6 · Banco de pruebas</h2>
+<p class="small">No pude ejecutar nada mientras construía esto: el que lo escribió no tiene permiso de correr comandos ni navegador para abrir la página. Así que el aparato se verifica solo, delante de quien lo abra. Todo lo de abajo se calcula ahora, en tu máquina, y se compara con valores publicados. Si algo está torcido, se ve acá y no hace falta creerme nada.</p>
+<div class="card scroll">
+<table id="tests"><thead><tr><th>qué</th><th>calculado</th><th>esperado</th><th>Δ</th><th></th></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="fn">
+<p><strong>Notas al pie</strong> (el erizo hace footnotes; muchas; siempre).</p>
+<ol>
+<li>La demostración cabe en un renglón y no depende de la música: si <span class="mono">(3/2)<sup>n</sup> = 2<sup>m</sup></span>, entonces <span class="mono">3<sup>n</sup> = 2<sup>n+m</sup></span>, y un producto de treses no puede tener un factor 2. Por eso el problema no tiene solución exacta, sólo repartos. El sistema de 53 tonos por octava, famoso por «cerrar», no cierra: se equivoca en 3,6 milésimas de semitono, que es indistinguible pero no es cero.</li>
+<li>Cada nota suena con cinco parciales de amplitud 1/n, porque con senos puros no habría nada que escuchar: los batidos que delatan un temperamento no ocurren entre las notas, ocurren entre sus armónicos. Un órgano de flautas puras es mucho más tolerante con la desafinación que uno de lengüetas, por esta única razón.</li>
+<li>Que el schisma sea inaudible es lo que hace posible el truco de la afinación «pitagórica bien elegida»: cambiando una nota por su equivalente a doce quintas de distancia se obtienen terceras que están a menos de 2 ¢ de las justas. Un error existente pero indetectable es, a efectos prácticos, presupuesto libre.</li>
+<li>El lobo del mesotónico vivía en <span class="mono">Sol♯–Mi♭</span>, y por eso los teclados de la época a veces traían la tecla negra <em>partida</em> en dos mitades: una para Sol♯ y otra para Mi♭, dos notas físicamente distintas que hoy tocamos con el mismo dedo.</li>
+<li>Werckmeister III achica las quintas Do–Sol, Sol–Re, Re–La y Si–Fa♯ en un cuarto de comma pitagórico (696,09 ¢) y deja puras las otras ocho. Ninguna nota queda a más de 12 ¢ del temperamento igual y aun así el gradiente de carácter es perfectamente audible; ambas cosas son ciertas al mismo tiempo, que es lo raro del asunto.</li>
+<li>Zhu Zaiyu obtuvo el resultado dividiendo sucesivamente la longitud de la cuerda por la raíz veinticuatroava de dos, de modo que a las doce divisiones la longitud quedara exactamente a la mitad. Sus instrumentos afinados así quedaron sin uso: la tradición cortesana no los adoptó.</li>
+</ol>
+<p><strong>Fuentes</strong> —
+<a href="https://en.wikipedia.org/wiki/Pythagorean_comma">Pythagorean comma</a> ·
+<a href="https://en.wikipedia.org/wiki/Syntonic_comma">Syntonic comma</a> ·
+<a href="https://en.wikipedia.org/wiki/Quarter-comma_meantone">Quarter-comma meantone</a> ·
+<a href="https://en.wikipedia.org/wiki/Werckmeister_temperament">Werckmeister temperament</a> ·
+<a href="https://en.wikipedia.org/wiki/Zhu_Zaiyu">Zhu Zaiyu</a> ·
+<a href="https://www.kylegann.com/histune.html">Kyle Gann, <em>An Introduction to Historical Tunings</em></a> ·
+<a href="https://www.hpschd.nu/tech/tmp/werckmeister.html">CBH Technical Library, <em>How to tune Werckmeister III</em></a> ·
+<a href="https://www.physik.uzh.ch/~psaha/misc/commas/">P. Saha, <em>The Circle of Fifths and the Comma of Pythagoras</em></a> ·
+<a href="https://www.historicaltuning.com/BeatsOfHarmonics.html">Historical Tuning, <em>Why do Tempered Intervals Beat?</em></a>
+</p>
+<p style="text-align:right;font-size:20px;margin-top:20px">🦔🔪؟</p>
+</div>
+
+</div>
+
+<script>
+"use strict";
+/* ───────────────────── aritmética ───────────────────── */
+const c = r => 1200*Math.log2(r);
+const PURE5 = c(3/2);                 // 701.9550008653874
+const OCT   = 1200;
+const PYTH  = 12*PURE5 - 7*OCT;       // 23.4600103846490
+const SYNT  = c(81/80);               // 21.5062895967149
+const JUST3 = c(5/4);                 // 386.3137138648348
+const FIFTH_LABELS = ['Do–Sol','Sol–Re','Re–La','La–Mi','Mi–Si','Si–Fa♯','Fa♯–Do♯','Do♯–Sol♯',
+                      'Sol♯–Re♯','Re♯–La♯','La♯–Fa','Fa–Do'];
+const WOLF_IDX = 8;                                   // Sol♯–Re♯
+const ORDER    = [0,1,2,3,4,5,6,7,9,10,11];           // las 11 temperables, en orden
+const CHROMA   = [0,7,2,9,4,11,6,1,8,3,10,5];         // clase de altura de cada nodo del círculo
+const NOTE_ES  = ['Do','Do♯','Re','Re♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'];
+
+/* un temperamento es un array de 12 tamaños de quinta, en cents, que suma 8400 */
+function build(n, x){                                  // n quintas achicadas x cents c/u
+  const f = new Array(12).fill(PURE5);
+  for(let i=0;i<n;i++) f[ORDER[i]] = PURE5 - x;
+  f[WOLF_IDX] = 7*OCT - f.reduce((a,v,i)=> i===WOLF_IDX?a:a+v, 0);
+  return f;
+}
+const PRESETS = {
+  pitagorico : {label:'Pitagórico',        n:0,  x:0,               note:'once quintas puras y una imposible'},
+  meantone   : {label:'Mesotónico ¼',      n:11, x:SYNT/4,          note:'terceras perfectas, un lobo enorme'},
+  werck      : {label:'Werckmeister III',  custom:'werck',          note:'reparto desigual, sin lobo'},
+  equal      : {label:'Temperado igual',   n:11, x:PYTH/12,         note:'todos pierden lo mismo'}
+};
+function werckmeister(){                               // Do–Sol, Sol–Re, Re–La, Si–Fa♯ : −¼ comma pitagórico
+  const f = new Array(12).fill(PURE5); const d = PYTH/4;
+  [0,1,2,5].forEach(i => f[i] = PURE5 - d);
+  return f;
+}
+/* alturas de las 12 clases, en cents sobre Do */
+function pitches(f){
+  const p = new Array(12).fill(0); let acc = 0;
+  for(let i=0;i<11;i++){ acc += f[i]; p[CHROMA[i+1]] = ((acc%OCT)+OCT)%OCT; }
+  return p;
+}
+
+/* ───────────────────── estado ───────────────────── */
+let STATE = {n:11, x:PYTH/12, custom:null, oct:0, preset:'equal'};
+const fifths = () => STATE.custom==='werck' ? werckmeister() : build(STATE.n, STATE.x);
+
+/* ───────────────────── audio ───────────────────── */
+let AC = null;
+function ac(){
+  if(!AC){ const C = window.AudioContext||window.webkitAudioContext; if(!C) return null; AC = new C(); }
+  if(AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function play(freqs, dur){
+  const A = ac(); if(!A) return;
+  const t = A.currentTime, g = A.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.9/Math.max(1,freqs.length), t+0.03);
+  g.gain.setValueAtTime(0.9/Math.max(1,freqs.length), t+dur-0.25);
+  g.gain.linearRampToValueAtTime(0.0001, t+dur);
+  g.connect(A.destination);
+  freqs.forEach(f0 => {
+    for(let n=1;n<=5;n++){
+      if(f0*n > 12000) break;
+      const o = A.createOscillator(), gn = A.createGain();
+      o.type='sine'; o.frequency.setValueAtTime(f0*n, t);
+      gn.gain.setValueAtTime(0.30/n, t);
+      o.connect(gn); gn.connect(g); o.start(t); o.stop(t+dur+0.05);
+    }
+  });
+}
+
+/* ───────────────────── el sobrante: a escala y con lupa ───────────────────── */
+(function ruler(){
+  const svg = document.getElementById('spiral');
+  const L=60, R=660, W=R-L;                     // pista de dibujo
+  const total = 12*PURE5;                       // 8423.46 ¢
+  const sc = x => L + W*x/total;                // cents → px, escala honesta
+  let s='';
+  const bar = (y,h,segs,col,lab) => {
+    let g = `<text x="${L}" y="${y-8}" fill="var(--dim)" font-size="13">${lab}</text>`;
+    let acc=0;
+    segs.forEach((w,i)=>{
+      g += `<rect x="${sc(acc).toFixed(2)}" y="${y}" width="${(W*w/total).toFixed(2)}" height="${h}"
+             fill="${col}" opacity="${i%2?0.55:0.85}"/>`;
+      acc+=w;
+    });
+    return g;
+  };
+  s += bar(46,26, Array(12).fill(PURE5), 'var(--accent2)', 'doce quintas puras  ·  cada bloque 701,955 ¢');
+  s += bar(112,26, Array(7).fill(1200),  'var(--ok)',      'siete octavas  ·  cada bloque 1200 ¢');
+  // caja de lupa
+  const zx0 = sc(8400-60), zx1 = sc(total);
+  s += `<rect x="${zx0.toFixed(1)}" y="38" width="${(zx1-zx0).toFixed(1)}" height="108"
+         fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 3"/>`;
+  s += `<path d="M${zx0.toFixed(1)},146 L120,196 M${zx1.toFixed(1)},146 L640,196"
+         stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 3" fill="none"/>`;
+  // zoom ×40 de los últimos 60 cents
+  const Z0=120, Z1=640, ZW=Z1-Z0, zStart=8400-60, zSpan=60+PYTH;
+  const zs = x => Z0 + ZW*(x-zStart)/zSpan;
+  s += `<rect x="${Z0}" y="206" width="${(zs(8400)-Z0).toFixed(1)}" height="24" fill="var(--ok)" opacity=".85"/>`;
+  s += `<rect x="${Z0}" y="240" width="${(zs(total)-Z0).toFixed(1)}" height="24" fill="var(--accent2)" opacity=".85"/>`;
+  s += `<rect x="${zs(8400).toFixed(1)}" y="240" width="${(zs(total)-zs(8400)).toFixed(1)}" height="24"
+         fill="var(--accent)"/>`;
+  s += `<line x1="${zs(8400).toFixed(1)}" y1="196" x2="${zs(8400).toFixed(1)}" y2="274"
+         stroke="var(--ok)" stroke-width="1.5"/>`;
+  s += `<text x="${(zs(8400)-6).toFixed(1)}" y="192" text-anchor="end" fill="var(--ok)" font-size="12.5"
+         font-family="ui-monospace,monospace">aquí debería terminar: Do</text>`;
+  s += `<text x="${zs(total).toFixed(1)}" y="288" text-anchor="end" fill="var(--accent)" font-size="12.5"
+         font-family="ui-monospace,monospace">termina acá: 23,46 ¢ más arriba</text>`;
+  const mag = Math.round((ZW/zSpan)/(W/total));
+  s += `<text x="${Z0}" y="192" fill="var(--dim)" font-size="12.5">lupa ×${mag} del final</text>`;
+  svg.innerHTML = s;
+  const m = document.getElementById('magTxt'); if(m) m.textContent = mag;
+})();
+
+/* ───────────────────── círculo de quintas ───────────────────── */
+function drawCircle(f){
+  const svg = document.getElementById('circle');
+  const cx=170, cy=170, R=118;
+  let s='';
+  const maxDev = Math.max(6, ...f.map(v=>Math.abs(v-PURE5)));
+  for(let i=0;i<12;i++){
+    const a0 = -Math.PI/2 + (i)*Math.PI/6, a1 = -Math.PI/2 + (i+1)*Math.PI/6;
+    const dev = f[i]-PURE5;
+    const w = 3 + 13*Math.min(1,Math.abs(dev)/maxDev);
+    const col = Math.abs(dev)<0.05 ? 'var(--ok)' : (dev>0 ? 'var(--accent)' : 'var(--accent2)');
+    const x0=cx+Math.cos(a0)*R, y0=cy+Math.sin(a0)*R, x1=cx+Math.cos(a1)*R, y1=cy+Math.sin(a1)*R;
+    s += `<path d="M${x0.toFixed(1)},${y0.toFixed(1)} A${R},${R} 0 0 1 ${x1.toFixed(1)},${y1.toFixed(1)}"
+           fill="none" stroke="${col}" stroke-width="${w.toFixed(1)}" stroke-linecap="round" opacity=".85"/>`;
+  }
+  for(let i=0;i<12;i++){
+    const a = -Math.PI/2 + i*Math.PI/6;
+    const x=cx+Math.cos(a)*(R+22), y=cy+Math.sin(a)*(R+22)+4;
+    s += `<circle cx="${(cx+Math.cos(a)*R).toFixed(1)}" cy="${(cy+Math.sin(a)*R).toFixed(1)}" r="3.4" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.2"/>`;
+    s += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="13"
+           fill="var(--ink)" font-family="ui-monospace,monospace">${NOTE_ES[CHROMA[i]]}</text>`;
+  }
+  const dw = f[WOLF_IDX]-PURE5;
+  s += `<text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="12" fill="var(--dim)">Sol♯–Re♯ · la que absorbe</text>`;
+  s += `<text x="${cx}" y="${cy+16}" text-anchor="middle" font-size="17" font-family="ui-monospace,monospace"
+         fill="${Math.abs(dw)>10?'var(--accent)':'var(--ink)'}">${f[WOLF_IDX].toFixed(1)} ¢</text>`;
+  s += `<text x="${cx}" y="${cy+34}" text-anchor="middle" font-size="12" fill="var(--dim)">${
+        Math.abs(dw)<0.05?'pura':(dw>0?'+':'')+dw.toFixed(1)+' ¢ vs pura'}</text>`;
+  svg.innerHTML = s;
+}
+
+/* ───────────────────── tablas ───────────────────── */
+function beatOf(fRoot, cents, hRoot, hUp){    // choque del armónico hRoot de la tónica vs hUp del otro
+  return Math.abs(hRoot*fRoot - hUp*fRoot*Math.pow(2, cents/1200));
+}
+function refresh(){
+  const f = fifths(), p = pitches(f);
+
+  /* libro de reparto */
+  const spent = f.reduce((a,v,i)=> i===WOLF_IDX?a:a+(PURE5-v), 0);
+  const left  = PYTH - spent;
+  const dw    = f[WOLF_IDX]-PURE5;
+  document.getElementById('ledger').innerHTML =
+    `comma a repartir <b>${PYTH.toFixed(3)} ¢</b> &nbsp;·&nbsp; repartido <b>${spent.toFixed(3)} ¢</b>` +
+    `&nbsp;·&nbsp; cae en Sol♯–Re♯ <b class="${Math.abs(dw)>10?'wolf':''}">${(dw>0?'+':'')+dw.toFixed(3)} ¢</b>` +
+    `<br><span class="small">${
+      Math.abs(dw)<0.05 ? 'cerró redondo: la quinta de cierre quedó pura.' :
+      dw>0 ? (Math.abs(left)>1 ? 'repartiste de más: la de cierre tiene que devolver la diferencia, y aúlla.' :
+                                  'la de cierre absorbe lo que sobra.') :
+             'repartiste de menos: la de cierre queda estrujada.'}</span>`;
+
+  /* tabla de quintas */
+  const tb = document.querySelector('#fifthTable tbody'); tb.innerHTML='';
+  const fRoot = 261.6256*Math.pow(2,STATE.oct);
+  f.forEach((v,i)=>{
+    const dev = v-PURE5;
+    const root = fRoot*Math.pow(2, p[CHROMA[i]]/1200);
+    const b = beatOf(root, v, 3, 2);
+    tb.innerHTML += `<tr><td>${FIFTH_LABELS[i]}${i===WOLF_IDX?' 🐺':''}</td>
+      <td>${v.toFixed(2)}</td>
+      <td class="${Math.abs(dev)>10?'wolf':''}">${dev>0?'+':''}${dev.toFixed(2)}</td>
+      <td>${b<0.05?'—':b.toFixed(1)+'/s'}</td></tr>`;
+  });
+
+  /* tabla de tonalidades */
+  const kt = document.querySelector('#keyTable tbody'); kt.innerHTML='';
+  const FULL = 42;            // escala FIJA: 42 ¢ = barra llena, para poder comparar temperamentos entre sí
+  for(let n=0;n<12;n++){
+    const third = ((p[(n+4)%12]-p[n])%OCT+OCT)%OCT;
+    const fifth = ((p[(n+7)%12]-p[n])%OCT+OCT)%OCT;
+    const root  = fRoot*Math.pow(2, p[n]/1200);
+    const bT = beatOf(root, third, 5, 4), bF = beatOf(root, fifth, 3, 2);
+    const d  = third-JUST3;
+    const w  = Math.min(110, 110*Math.abs(d)/FULL);
+    const col= Math.abs(d)<1?'var(--ok)':(Math.abs(d)>25?'var(--accent)':'var(--warn)');
+    kt.innerHTML += `<tr>
+      <td>${NOTE_ES[n]}</td>
+      <td>${third.toFixed(1)}</td>
+      <td><span style="display:inline-block;height:9px;width:${w.toFixed(0)}px;background:${col};
+           border-radius:2px;vertical-align:middle"></span> ${d>0?'+':''}${d.toFixed(1)}</td>
+      <td>${bT.toFixed(1)}/s</td>
+      <td>${fifth.toFixed(1)}</td>
+      <td class="${Math.abs(fifth-PURE5)>10?'wolf':''}">${bF<0.05?'—':bF.toFixed(1)+'/s'}</td>
+      <td><button class="keybtn" data-root="${root}" data-t="${third}" data-f="${fifth}">▶</button></td></tr>`;
+  }
+  kt.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const r=+b.dataset.root;
+    play([r, r*Math.pow(2,+b.dataset.t/1200), r*Math.pow(2,+b.dataset.f/1200)], 2.4);
+  });
+
+  drawCircle(f);
+  document.getElementById('nVal').textContent = STATE.custom ? '— (fijo)' : STATE.n;
+  document.getElementById('xVal').textContent = STATE.custom ? '—' : STATE.x.toFixed(3);
+  document.getElementById('xFrac').textContent = STATE.custom ? '' :
+     STATE.x<0.01 ? '(nada)' : `≈ 1/${(PYTH/STATE.x).toFixed(1)} de comma pitagórico`;
+}
+
+/* ───────────────────── controles ───────────────────── */
+const pdiv = document.getElementById('presets');
+Object.entries(PRESETS).forEach(([k,v])=>{
+  const b=document.createElement('button'); b.textContent=v.label; b.dataset.k=k;
+  b.title=v.note;
+  b.onclick=()=>{
+    document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    if(v.custom){ STATE.custom=v.custom; }
+    else { STATE.custom=null; STATE.n=v.n; STATE.x=v.x;
+           document.getElementById('nSlider').value=v.n;
+           document.getElementById('xSlider').value=Math.round(v.x*100); }
+    refresh();
+  };
+  pdiv.appendChild(b);
+});
+document.getElementById('nSlider').oninput = e => {
+  STATE.custom=null; STATE.n=+e.target.value;
+  document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('on')); refresh();
+};
+document.getElementById('xSlider').oninput = e => {
+  STATE.custom=null; STATE.x=+e.target.value/100;
+  document.querySelectorAll('#presets button').forEach(x=>x.classList.remove('on')); refresh();
+};
+document.querySelectorAll('[data-oct]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('[data-oct]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); STATE.oct=+b.dataset.oct; refresh();
+});
+
+/* ───────────────────── el oído ───────────────────── */
+const cv = document.getElementById('beat'), ctx = cv.getContext('2d');
+/* Dibujo la ENVOLVENTE, no la onda cruda: los armónicos en pugna andan por los 1300 Hz y a 900
+   píxeles por segundo la portadora sería puro aliasing. La envolvente de la suma de dos senos de
+   igual amplitud es |2·cos(π·Δf·t)|, y sus nudos son exactamente los batidos — se pueden contar. */
+function drawBeat(f1, f2, label){
+  const W=cv.width, H=cv.height, df=Math.abs(f1-f2);
+  const cs = getComputedStyle(document.body);
+  const c2 = cs.getPropertyValue('--accent2').trim()||'#2f6b7a';
+  const cl = cs.getPropertyValue('--line').trim()||'#ccc';
+  const cd = cs.getPropertyValue('--dim').trim()||'#888';
+  ctx.clearRect(0,0,W,H);
+  // rejilla de décimas de segundo
+  ctx.strokeStyle=cl; ctx.lineWidth=1;
+  for(let k=0;k<=10;k++){ const x=k*W/10; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  const env = t => Math.abs(Math.cos(Math.PI*df*t))*H*0.44;
+  ctx.beginPath();
+  for(let i=0;i<=W;i++){ const t=i/W, y=H/2-env(t); i?ctx.lineTo(i,y):ctx.moveTo(i,y); }
+  for(let i=W;i>=0;i--){ const t=i/W, y=H/2+env(t); ctx.lineTo(i,y); }
+  ctx.closePath();
+  ctx.fillStyle=c2; ctx.globalAlpha=.30; ctx.fill(); ctx.globalAlpha=1;
+  ctx.strokeStyle=c2; ctx.lineWidth=1.6; ctx.stroke();
+  ctx.fillStyle=cd; ctx.font='11px ui-monospace,Menlo,monospace';
+  ctx.fillText('1 segundo  ·  cada franja = 0,1 s', 6, H-6);
+  document.getElementById('beatTxt').textContent = label +
+    ` — armónicos en pugna: ${f1.toFixed(2)} Hz y ${f2.toFixed(2)} Hz · batido ${df.toFixed(2)} por segundo` +
+    (df<0.02 ? ' · banda entera, sin nudos: no bate' : ` · contá los nudos: hay ${df.toFixed(1)} en la ventana`);
+}
+function earFifth(pure){
+  const f=fifths(), root=261.6256*Math.pow(2,STATE.oct);
+  const cts = pure ? PURE5 : f[0];
+  const up = root*Math.pow(2,cts/1200);
+  play([root,up],2.4); drawBeat(3*root, 2*up, pure?'quinta pura (3:2)':'quinta Do–Sol de este temperamento');
+}
+function earThird(pure){
+  const p=pitches(fifths()), root=261.6256*Math.pow(2,STATE.oct);
+  const cts = pure ? JUST3 : p[4];
+  const up = root*Math.pow(2,cts/1200);
+  play([root,up],2.4); drawBeat(5*root, 4*up, pure?'tercera pura (5:4)':'tercera Do–Mi de este temperamento');
+}
+document.getElementById('bPureF').onclick=()=>earFifth(true);
+document.getElementById('bTempF').onclick=()=>earFifth(false);
+document.getElementById('bPureT').onclick=()=>earThird(true);
+document.getElementById('bTempT').onclick=()=>earThird(false);
+document.getElementById('bBoth').onclick=()=>{
+  const p=pitches(fifths()), root=261.6256*Math.pow(2,STATE.oct);
+  play([root, root*Math.pow(2,JUST3/1200), root*Math.pow(2,p[4]/1200)],2.6);
+  // acá la pugna es entre las dos fundamentales (dos Mi casi iguales), no entre armónicos altos
+  drawBeat(root*Math.pow(2,JUST3/1200), root*Math.pow(2,p[4]/1200),
+           'los dos Mi a la vez: el justo y el del temperamento');
+};
+
+/* ───────────────────── banco de pruebas ───────────────────── */
+(function tests(){
+  const rows=[]; const add=(what,got,exp,tol,unit)=>rows.push({what,got,exp,tol,unit:unit||'¢'});
+  add('comma pitagórico: 12 quintas − 7 octavas', 12*PURE5-8400, 23.4600, 5e-4);
+  add('mismo comma como razón 531441/524288',      c(531441/524288), 23.4600, 5e-4);
+  add('comma sintónico 81:80',                     SYNT, 21.5063, 5e-4);
+  add('schisma = pitagórico − sintónico',          PYTH-SYNT, 1.9537, 5e-4);
+  add('tercera justa 5:4',                         JUST3, 386.3137, 5e-4);
+  const eq = build(11, PYTH/12);
+  add('temperado igual: cierre (suma de 12 quintas)', eq.reduce((a,b)=>a+b,0), 8400, 1e-8);
+  add('temperado igual: toda quinta',                 Math.max(...eq), 700, 1e-9);
+  const pe = pitches(eq);
+  add('temperado igual: mayor desvío de la escala vs múltiplos de 100',
+      Math.max(...pe.map((v,i)=>Math.abs(v - 100*i))), 0, 1e-8);
+  add('temperado igual: tercera mayor', ((pe[4])%1200), 400, 1e-9);
+  add('temperado igual: tercera vs justa', pe[4]-JUST3, 13.6863, 5e-4);
+  const mt = build(11, SYNT/4);
+  add('mesotónico ¼: cierre',            mt.reduce((a,b)=>a+b,0), 8400, 1e-8);
+  add('mesotónico ¼: quinta temperada',  mt[0], 696.5784, 5e-4);
+  add('mesotónico ¼: 4 quintas − 2 octavas = tercera justa', 4*mt[0]-2400, JUST3, 5e-4);
+  add('mesotónico ¼: el lobo Sol♯–Re♯',  mt[WOLF_IDX], 737.6374, 5e-4);
+  const wk = werckmeister();
+  add('Werckmeister III: cierre',        wk.reduce((a,b)=>a+b,0), 8400, 1e-8);
+  add('Werckmeister III: quinta achicada', wk[0], 696.0900, 5e-3);
+  const pw = pitches(wk);
+  add('Werckmeister III: mayor desvío vs temperado igual',
+      Math.max(...pw.map((v,i)=>Math.abs(v-100*i))), 11.7300, 5e-3);
+  const py = build(0,0);
+  add('pitagórico: el lobo',             py[WOLF_IDX], 678.4950, 5e-4);
+  add('pitagórico: tercera de 4 quintas', 4*PURE5-2400, 407.8200, 5e-3);
+  // batido: dos caminos independientes
+  const rt=261.6256, up=rt*Math.pow(2, pe[4]/1200);
+  add('batido tercera Do4–Mi4 en temperado igual, por armónicos: |5f − 4f′|',
+      Math.abs(5*rt-4*up), Math.abs(5*rt*(1-Math.pow(2,(pe[4]-JUST3)/1200))), 1e-9, ' Hz');
+  add('el mismo batido, una octava más arriba: exactamente el doble',
+      Math.abs(10*rt-8*up), 2*Math.abs(5*rt-4*up), 1e-9, ' Hz');
+  add('tercera pura no bate',            Math.abs(5*rt-4*rt*Math.pow(2,JUST3/1200)), 0, 1e-9, ' Hz');
+  const tb=document.querySelector('#tests tbody');
+  rows.forEach(r=>{
+    const ok = Math.abs(r.got-r.exp) <= r.tol;
+    const dec = r.tol<1e-6 ? 8 : 4;
+    tb.innerHTML += `<tr><td>${r.what}</td>
+      <td>${r.got.toFixed(dec)}${r.unit}</td><td>${r.exp.toFixed(dec)}${r.unit}</td>
+      <td>${Math.abs(r.got-r.exp).toExponential(1)}</td>
+      <td class="${ok?'pass':'fail'}">${ok?'✓':'✗'}</td></tr>`;
+  });
+  const bad = rows.filter(r=>Math.abs(r.got-r.exp)>r.tol).length;
+  tb.innerHTML += `<tr><td colspan="4"><b>${rows.length - bad} de ${rows.length} verificaciones pasan</b></td>
+    <td class="${bad?'fail':'pass'}">${bad?'✗':'✓'}</td></tr>`;
+})();
+
+/* arranque */
+document.getElementById('commaBig').textContent = ((3/2)**12/128).toFixed(9) + '  ≠  1';
+document.getElementById('commaTxt').innerHTML =
+  `sobra un factor <span class="mono">531441/524288</span> = <b>${PYTH.toFixed(4)} centésimas</b> de semitono temperado — un cuarto de semitono, perfectamente audible.`;
+document.querySelector('#presets button[data-k="equal"]').classList.add('on');
+refresh();
+drawBeat(5*261.6256, 4*261.6256*Math.pow(2,400/1200), 'tercera Do–Mi del temperamento igual');
+</script>
+</body>
+</html>

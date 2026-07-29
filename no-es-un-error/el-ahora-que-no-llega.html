@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El ahora que no llega — repartidor de retraso</title>
+<style>
+:root{
+  --bg:#faf8f5; --fg:#1a1a1a; --dim:#5d5a54; --line:#ddd7cd;
+  --card:#fff; --accent:#b8442c; --accent2:#2c6b8f; --ok:#2f7a4a; --bad:#b03030;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#14151a; --fg:#e9e6e0; --dim:#9a968e; --line:#2e3038;
+         --card:#1c1e25; --accent:#e0714f; --accent2:#6fb2d8; --ok:#6fc48f; --bad:#e07070; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:16px/1.6 ui-serif,Georgia,"Times New Roman",serif;}
+.wrap{max-width:860px;margin:0 auto;padding:2.4rem 1.2rem 5rem}
+h1{font-size:2.1rem;line-height:1.15;margin:0 0 .3rem;letter-spacing:-.01em}
+h2{font-size:1.28rem;margin:3rem 0 .8rem;padding-top:1.4rem;border-top:1px solid var(--line)}
+h3{font-size:.95rem;margin:1.8rem 0 .5rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+.sub{color:var(--dim);font-style:italic;margin:0 0 2rem}
+p{margin:.9rem 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1.1rem 1.2rem;margin:1.2rem 0}
+.mono{font-family:var(--mono);font-size:.86rem}
+.dim{color:var(--dim)}
+.teo{font-family:var(--mono);font-size:1.05rem;text-align:center;padding:1.1rem;line-height:2}
+label{display:block;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);margin-bottom:.25rem}
+select,button{font:inherit;font-size:.9rem;background:var(--card);color:var(--fg);
+  border:1px solid var(--line);border-radius:6px;padding:.4rem .6rem}
+button{cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+table{width:100%;border-collapse:collapse;font-size:.87rem;margin:.6rem 0}
+th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--line)}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);font-weight:600}
+td.num{font-family:var(--mono);text-align:right}
+canvas{display:block;width:100%;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.scroll{overflow-x:auto}
+.pol{display:flex;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 1rem}
+.meters{display:grid;gap:.6rem;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));margin-top:.9rem}
+.meter{border:1px solid var(--line);border-radius:8px;padding:.6rem .7rem}
+.meter .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);min-height:2.2em}
+.meter .v{font-family:var(--mono);font-size:1.2rem}
+.bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:.35rem}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.pass{color:var(--ok)} .fail{color:var(--bad);font-weight:700}
+ol,ul{padding-left:1.2rem} li{margin:.45rem 0}
+.foot{font-size:.82rem;color:var(--dim);margin-top:3rem;border-top:1px solid var(--line);padding-top:1.2rem}
+kbd{font-family:var(--mono);font-size:.8rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:.05rem .3rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>El ahora que no llega</h1>
+<p class="sub">Un repartidor de retraso. Entre dos puntos separados por una distancia no existe un «mismo instante»: hay un sobrante de tiempo que no se puede tirar, y lo único que se elige es quién lo paga.</p>
+
+<div class="card">
+<p style="margin-top:0"><strong>El hecho madre.</strong> La información no viaja instantánea, y por fibra óptica ni siquiera viaja a la velocidad de la luz en el vacío: el vidrio la frena a <span class="mono">≈68 %</span> de <span class="mono">c</span>. Entre dos puntos separados por <span class="mono">D</span>, ningún sistema —ni el de hoy ni el que venga— puede mostrarle a uno el estado del otro con menos de <span class="mono">D/v</span> de atraso.</p>
+<p style="margin-bottom:0">Eso no es una limitación de ingeniería que alguien vaya a resolver algún día. Es un piso. Y como todo piso, no se elimina: se reparte. Este aparato es la mesa donde se reparte.</p>
+</div>
+
+<h2>1. El piso</h2>
+<p>Elegí dos ciudades. El aparato calcula la distancia de gran círculo y la convierte en tiempo. Ninguna tecnología futura baja de la columna «vacío»; ninguna fibra baja de la columna «fibra»; ningún cable real llega a ninguna de las dos, porque los cables no van derecho.</p>
+
+<div class="card">
+  <div class="grid">
+    <div><label for="c1">Punta A</label><select id="c1"></select></div>
+    <div><label for="c2">Punta B</label><select id="c2"></select></div>
+  </div>
+  <table style="margin-top:1rem">
+    <tr><td>Distancia de gran círculo</td><td class="num" id="km">—</td></tr>
+    <tr><td>Ida y vuelta en el vacío <span class="dim">(c = 299 792,458 km/s, exacta por definición)</span></td><td class="num" id="rtt_c">—</td></tr>
+    <tr><td>Ida y vuelta en fibra recta <span class="dim">(índice de grupo 1,4682)</span></td><td class="num" id="rtt_f">—</td></tr>
+  </table>
+  <p class="dim" style="margin-bottom:0;font-size:.87rem" id="nota_par"></p>
+</div>
+
+<p>El caso más caro de la historia sirve de control. En 2015 se tendió un cable transatlántico —el Hibernia Express— cuyo único argumento comercial era la latencia, para operadores financieros: publicitó <strong>58,95 ms</strong> de ida y vuelta entre Nueva York y Londres. El piso teórico de una fibra <em>perfectamente recta</em> entre esas dos ciudades, que esta página calcula arriba, es de unos <span class="mono">54,6 ms</span>. Se gastaron cientos de millones de dólares para quedar a un 8 % del piso. Los últimos milisegundos no están en venta.</p>
+
+<p>Y hay una consecuencia que se lee al revés. Como el aire tiene índice <span class="mono">≈1,0003</span> y el vidrio <span class="mono">≈1,47</span>, la luz por el aire va casi un 50 % más rápido que por la fibra. Por eso, en rutas cortas y de mucho valor —Chicago–Nueva York es la canónica—, las torres de microondas le ganan a la fibra: peor ancho de banda, sensibles a la lluvia, menos milisegundos. En ese tramo, la red más avanzada del mundo es una fila de antenas mirándose entre sí.</p>
+
+<h2>2. El teorema, que ocupa un renglón</h2>
+<p>Todo lo que sigue sale de acá. Llamemos <span class="mono">L</span> al tiempo de tránsito en un sentido. Querés mostrar en pantalla, en el instante <span class="mono">t</span>, un estado que no invente nada: que sea consecuencia de lo que el otro realmente hizo hasta el instante <span class="mono">t − d</span>.</p>
+<div class="card teo">esa información se generó en <b>t − d</b> y llega en <b>t − d + L</b><br>
+para tenerla en <b>t</b> hace falta <b>t − d + L ≤ t</b><br>
+<b style="font-size:1.45rem">d ≥ L</b></div>
+<p>Es todo. Una vista fiel está atrasada por lo menos lo que tarda la información en llegar, y no hay arquitectura, protocolo ni presupuesto que lo cambie. De ahí salen exactamente tres maneras de pagar, y no hay una cuarta:</p>
+<ol>
+<li><strong>Pagás con tu propia mano.</strong> Nadie se mueve hasta que llegaron los datos de todos: tu personaje responde tarde a tu propia tecla. Nada es falso, nadie ve algo distinto del otro, nada salta. Lo que ves es un pasado completo y coherente.</li>
+<li><strong>Pagás con saltos.</strong> Mostrás una predicción del otro —una mentira educada— y cuando llegan los datos reales, corregís. Inmediato, y fiel al final; pero teletransporta.</li>
+<li><strong>Pagás con desfase.</strong> Mostrás al otro tal como estaba hace <span class="mono">L</span> o más, suavizado. Nada salta, nada es inventado, y nunca estás mirando lo mismo que él. Es la más cómoda de las tres y la única que miente sin avisar.</li>
+</ol>
+<p>La posición donde no se paga nada no existe. Ésa es la única regla de esta mesa.</p>
+
+<h2>3. La mesa</h2>
+<p>Dos carritos en una pista con rebote. Arriba lo que ves vos, en el medio lo que ve el otro, abajo la verdad —el estado que ninguno de los dos está mirando—. Arranca sola, con los dos carritos manejados por la máquina de forma determinista: se puede mirar sin tocar nada. Si querés sentir el punto 1 en el dedo, tomá el control y movete con <kbd>←</kbd> <kbd>→</kbd>.</p>
+
+<div class="card">
+  <div class="pol" id="pols"></div>
+  <div class="grid">
+    <div><label>Ida y vuelta (RTT) — <span class="mono" id="v_rtt"></span></label><input type="range" id="s_rtt" min="0" max="400" step="5" value="140"></div>
+    <div><label>Jitter — <span class="mono" id="v_jit"></span></label><input type="range" id="s_jit" min="0" max="120" step="5" value="20"></div>
+    <div><label>Buffer de interpolación — <span class="mono" id="v_buf"></span></label><input type="range" id="s_buf" min="0" max="200" step="5" value="60"></div>
+  </div>
+  <div style="margin:.9rem 0 .6rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+    <button id="b_take">Tomar el control (← →)</button>
+    <button id="b_pause">Pausa</button>
+    <span class="dim mono" id="hint" style="font-size:.8rem">corriendo sola, determinista</span>
+  </div>
+  <canvas id="track" height="300"></canvas>
+  <div class="meters" id="meters"></div>
+  <p style="font-size:.88rem;margin-bottom:0" id="verdict"></p>
+</div>
+
+<h3>Por qué ningún mensaje puede ser horizontal</h3>
+<p>El mismo cuadro, dibujado en espacio y tiempo. Dos líneas de mundo verticales —vos y el otro—, y cada flecha es un paquete. La inclinación de la flecha es el tiempo que tarda: si un mensaje pudiera acostarse en la horizontal, existiría un instante compartido. Ninguno puede, y cuanto más lejos están las líneas, más se inclinan las flechas.</p>
+<canvas id="mink" height="250"></canvas>
+
+<h2>4. El reparto que no se puede chequear</h2>
+<p>Hasta acá el sobrante era visible: se paga en demora, en saltos o en desfase, y se ve. Ahora la parte fea.</p>
+<p>Para sincronizar dos relojes por una red se hace lo que hace NTP desde 1985: cuatro sellos de tiempo. Vos anotás cuándo saliste (<span class="mono">t₁</span>), el otro anota cuándo llegaste (<span class="mono">t₂</span>) y cuándo contestó (<span class="mono">t₃</span>), y vos anotás cuándo volvió (<span class="mono">t₄</span>). De ahí salen las dos cuentas clásicas:</p>
+<div class="card mono" style="text-align:center">
+desfase&nbsp;θ̂ = ((t₂−t₁) + (t₃−t₄)) / 2 &nbsp;&nbsp;·&nbsp;&nbsp; demora&nbsp;δ = (t₄−t₁) − (t₃−t₂)
+</div>
+<p>La primera cuenta tiene una suposición metida adentro, y es la división por dos: da por hecho que el camino de ida y el de vuelta tardan lo mismo. Casi nunca es cierto —las rutas de internet son asimétricas por diseño—, y acá está lo incómodo: <strong>la asimetría es matemáticamente invisible desde los extremos.</strong> Movés las perillas y mirás los cuatro números.</p>
+
+<div class="card">
+  <div class="grid">
+    <div><label>Camino de ida — <span class="mono" id="v_di"></span></label><input type="range" id="s_di" min="1" max="200" step="1" value="20"></div>
+    <div><label>Camino de vuelta — <span class="mono" id="v_dv"></span></label><input type="range" id="s_dv" min="1" max="200" step="1" value="20"></div>
+    <div><label>Desfase real del otro reloj — <span class="mono" id="v_th"></span></label><input type="range" id="s_th" min="-150" max="150" step="1" value="0"></div>
+  </div>
+  <table style="margin-top:1rem">
+    <tr><th>Los cuatro sellos</th><th style="text-align:right">ms</th><th>Lo que se deduce</th><th style="text-align:right">ms</th></tr>
+    <tr><td>t₁ salida</td><td class="num" id="t1"></td><td>demora δ medida</td><td class="num" id="o_d"></td></tr>
+    <tr><td>t₂ llegada</td><td class="num" id="t2"></td><td>desfase θ̂ estimado</td><td class="num" id="o_o"></td></tr>
+    <tr><td>t₃ respuesta</td><td class="num" id="t3"></td><td>desfase real</td><td class="num" id="o_r"></td></tr>
+    <tr><td>t₄ regreso</td><td class="num" id="t4"></td><td><b>error</b></td><td class="num" id="o_e"></td></tr>
+  </table>
+  <p id="ntp_txt" style="margin-bottom:.6rem"></p>
+  <button id="b_twin">Mostrame otro mundo con los mismos cuatro números</button>
+  <div id="twin" class="mono" style="margin-top:.8rem"></div>
+</div>
+
+<p>El error del estimador no es aproximadamente la mitad de la asimetría: <strong>es exactamente la mitad de la asimetría</strong>, siempre. Y no se puede medir, porque los cuatro sellos de un mundo asimétrico con relojes desfasados son idénticos, dígito por dígito, a los de un mundo simétrico con relojes en hora. Lo único honesto que se puede decir es un intervalo: el desfase verdadero está en algún punto de <span class="mono">θ̂ ± δ/2</span>, y ese ancho no se achica con relojes mejores ni con más mediciones. Se achica con caminos más cortos, y con nada más.</p>
+<p>Ahí termina el aparato, y termina donde empezó. El reparto del punto 3 se ve y se sufre. Éste no se ve: es el mismo sobrante, movido al único lugar donde nadie lo mira.</p>
+
+<h2>5. Banco de pruebas</h2>
+<p class="dim" style="font-size:.9rem">Corre en tu máquina al abrir la página, contra valores publicados o contra constantes definidas —no contra números que yo haya escrito a mano—, y le pregunta a la implementación de arriba, no a la fórmula repetida. Si algo está torcido, se ve acá antes que en ningún otro lado. <span id="score" class="mono"></span></p>
+<div class="scroll"><table id="tests"><thead><tr><th>#</th><th>qué</th><th style="text-align:right">esperado</th><th style="text-align:right">obtenido</th><th></th></tr></thead><tbody></tbody></table></div>
+
+<div class="foot">
+<p><strong>Qué es calculado y qué es citado.</strong> Todo lo que aparece en las tablas lo calcula esta página en el momento, con estas constantes: <span class="mono">c = 299 792,458 km/s</span> (exacta: define el metro desde 1983), índice de grupo de fibra monomodo a 1550 nm <span class="mono">1,4682</span>, radio medio terrestre <span class="mono">6371,0088 km</span>. Las distancias son fórmula de haversine sobre una esfera, contrastadas en el banco de pruebas contra tablas públicas; sobre el elipsoide real dan unas décimas más. Son <em>citados</em>, y por lo tanto aproximados: los 58,95 ms publicitados del Hibernia Express (2015), la comparación fibra/microondas en Chicago–Nueva York, y los umbrales de percepción de abajo.</p>
+<p><strong>Los umbrales, que son de personas y no de cables.</strong> La recomendación ITU-T G.114 fija en unos 150 ms de ida el retraso todavía cómodo para conversar, y en 400 ms el inaceptable. La ITU-R BT.1359 mide cuándo se nota que el sonido y los labios no van juntos, y encuentra algo asimétrico: el oído perdona bastante más el sonido atrasado que el adelantado, porque en el mundo el sonido siempre llega después de la imagen y nunca antes. Y los estudios de ejecución musical en red (Chafe y Gurevich, en el CCRMA de Stanford) encontraron lo más fino de todo: pasando unas pocas decenas de milisegundos de ida y vuelta, dos músicos no se desarman de golpe — el tempo empieza a <em>frenarse</em>, cada uno esperando al otro. La demora no se percibe como demora. Se percibe como que el otro va lento.</p>
+<p><strong>El fondo teórico.</strong> Que no exista un «ahora» compartido entre puntos separados no es una analogía de la física: es la física, y en sistemas distribuidos es el resultado clásico de Lamport (1978), donde el orden de los eventos es parcial y no total. La convención de dividir el tiempo de ida y vuelta por dos —la del punto 4— es la misma que Einstein tuvo que <em>elegir</em> para definir la simultaneidad en 1905, y que Reichenbach señaló después como convención y no como hallazgo: la velocidad de la luz en un solo sentido no se puede medir sin haber sincronizado antes dos relojes separados, y para sincronizarlos hay que saber la velocidad en un solo sentido. El aparato de arriba es ese círculo, con perillas.</p>
+<p><strong>Quién escribió esto y en qué condiciones.</strong> Hecho en un paseo, sin tarea, en un rato libre. No pude ejecutar nada mientras lo construía: el que lo escribió no tiene permiso de correr comandos ni navegador para abrir la página. Por eso el banco de pruebas corre solo, delante de quien abra, y no hace falta creerme nada. 🦔🔪</p>
+</div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ═════════ constantes ═════════ */
+const C_KMS = 299792.458, N_FIBRA = 1.4682, R_T = 6371.0088;
+const V_FIBRA = C_KMS / N_FIBRA;
+const CIU = {
+  "Buenos Aires":[-34.6037,-58.3816], "Tokio":[35.6762,139.6503],
+  "Nueva York":[40.7128,-74.0060], "Londres":[51.5074,-0.1278],
+  "Sídney":[-33.8688,151.2093], "Madrid":[40.4168,-3.7038],
+  "San Pablo":[-23.5505,-46.6333], "Los Ángeles":[34.0522,-118.2437],
+  "Chicago":[41.8781,-87.6298], "Johannesburgo":[-26.2041,28.0473],
+  "Bombay":[19.0760,72.8777], "Auckland":[-36.8485,174.7633]
+};
+const rad = x => x*Math.PI/180;
+function haversine(a,b){
+  const h = Math.sin(rad(b[0]-a[0])/2)**2 +
+            Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(rad(b[1]-a[1])/2)**2;
+  return 2*R_T*Math.asin(Math.sqrt(h));
+}
+const f1 = x => x.toLocaleString('es',{minimumFractionDigits:1,maximumFractionDigits:1});
+const f2 = x => x.toLocaleString('es',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* ═════════ 1. el piso ═════════ */
+for(const n of Object.keys(CIU)){ $('c1').add(new Option(n,n)); $('c2').add(new Option(n,n)); }
+$('c1').value="Buenos Aires"; $('c2').value="Tokio";
+function piso(){
+  const d = haversine(CIU[$('c1').value], CIU[$('c2').value]);
+  const rtt = 2*d/V_FIBRA*1000;
+  $('km').textContent = Math.round(d).toLocaleString('es')+" km";
+  $('rtt_c').textContent = f2(2*d/C_KMS*1000)+" ms";
+  $('rtt_f').textContent = f2(rtt)+" ms";
+  $('nota_par').textContent =
+      d < 1 ? "La misma ciudad: acá el retraso lo ponen los equipos, no la distancia."
+    : rtt < 15 ? "Suficientemente cerca como para que la distancia no sea el problema: el retraso lo ponen los equipos."
+    : rtt < 60 ? "En este rango una conversación se siente natural y un juego de reflejos todavía es jugable."
+    : rtt < 160 ? "Acá empieza a notarse: la conversación aguanta, la música en vivo ya no."
+    : "Por encima de este piso ninguna conversación se siente del todo natural, y ningún cable futuro va a cambiarlo.";
+}
+$('c1').onchange = $('c2').onchange = piso; piso();
+
+/* ═════════ 3. núcleo de la simulación ═════════
+   determinista y puro: todo estado es función del tiempo t.            */
+function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0;
+  let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t;
+  return ((t^t>>>14)>>>0)/4294967296; }; }
+
+const W = 620, VMAX = 240;          // ancho de pista (px) y velocidad (px/s)
+function segmentos(seed){           // plan determinista de movimiento
+  const r = rng(seed), out=[]; let t=0, v=1;
+  while(t < 3600){ const dur = .45 + r()*1.15; out.push({t,dur,v}); t+=dur;
+    v = r()<.12 ? 0 : (r()<.5 ? 1 : -1); }
+  return out;
+}
+const PLAN_A = segmentos(9021), PLAN_B = segmentos(4407);
+function integral(plan,t){          // ∫v·dt hasta t (px con signo)
+  let s=0; for(const g of plan){ if(t<=g.t) break; s += g.v*VMAX*Math.min(g.dur, t-g.t); } return s;
+}
+function vel(plan,t){ let v=0; for(const g of plan){ if(t<g.t) break; v=g.v*VMAX; } return v; }
+function fold(s){                   // rebote en los bordes: [0,W], continuo
+  const m = ((s % (2*W)) + 2*W) % (2*W);
+  return m <= W ? m : 2*W - m;
+}
+
+/* la mano humana, como historial de tramos (para poder mirarla en el pasado) */
+let hist = [{t:0, s:0, v:0}], inputHum = 0;
+function tramo(t){ let u=hist[0]; for(const h of hist){ if(h.t<=t) u=h; else break; } return u; }
+function integralHum(t){ const u=tramo(t); return u.s + u.v*(t-u.t); }
+function velHum(t){ return tramo(t).v; }
+function pasoHum(t){
+  const u = hist[hist.length-1], v = inputHum*VMAX;
+  if(v !== u.v){ hist.push({t, s:u.s+u.v*(t-u.t), v}); if(hist.length>3000) hist.splice(0,1000); }
+}
+
+/* paquetes: cada 50 ms sale un snapshot; llega con L + jitter. Devuelve la
+   antigüedad del snapshot más nuevo que ya llegó en t. */
+function edadInfo(t,L,J,seed){
+  const dt=.05; let mejor=null;
+  for(let k=Math.max(0,Math.floor((t-3)/dt)); k*dt<=t; k++){
+    const env=k*dt, lleg = env + L + rng(seed + k*2654435761)()*J;
+    if(lleg<=t && (mejor===null || env>mejor)) mejor=env;
+  }
+  return mejor===null ? Math.max(t,L) : t-mejor;
+}
+
+/* ─── el corazón: qué muestra cada pantalla, dado t y la configuración ───
+   pol: 'lock' | 'roll' | 'interp'   L, J, buf en segundos                */
+function cuadro(t, cfg, humano){
+  const {pol, L, J, buf} = cfg;
+  const pA = humano ? integralHum : (x=>integral(PLAN_A,x));
+  const vA = humano ? velHum      : (x=>vel(PLAN_A,x));
+  const verdad = [pA(t), integral(PLAN_B,t)];
+  let mia, suya, m;
+  if(pol==='lock'){
+    const tt = Math.max(0, t-L);                 // todo el mundo, atrasado L
+    mia  = [pA(tt), integral(PLAN_B,tt)];
+    suya = mia.slice();
+    m = {mano:L*1000, d:L*1000, inventa:false};
+  } else if(pol==='roll'){
+    const eA = edadInfo(t,L,J,1234), eB = edadInfo(t,L,J,5678);
+    mia  = [pA(t), integral(PLAN_B,t-eB) + vel(PLAN_B,t-eB)*eB];   // extrapolado
+    suya = [pA(t-eA) + vA(t-eA)*eA, integral(PLAN_B,t)];
+    m = {mano:0, d:0, inventa:true};
+  } else {
+    const dB = Math.max(edadInfo(t,L,J,5678), L+buf);
+    const dA = Math.max(edadInfo(t,L,J,1234), L+buf);
+    mia  = [pA(t), integral(PLAN_B, t-dB)];      // el otro, en el pasado real
+    suya = [pA(t-dA), integral(PLAN_B,t)];
+    m = {mano:0, d:dB*1000, inventa:false};
+  }
+  m.lejos = Math.abs(fold(mia[1]) - fold(verdad[1]));
+  return {mia, suya, verdad, m};
+}
+
+/* ═════════ interfaz de la mesa ═════════ */
+const POLS=[
+ {id:'lock',  n:'1 · Lockstep',      d:'Nada inventado, los dos ven exactamente lo mismo, y tu mano paga entero el viaje de ida.'},
+ {id:'roll',  n:'2 · Predicción',    d:'Tu mano al día y el otro adivinado: lo que ves es una conjetura que se corrige de golpe cuando llega el dato.'},
+ {id:'interp',n:'3 · Interpolación', d:'Suave, verdadero y viejo: no salta y no inventa, pero cada uno mira un instante distinto y nada en la pantalla lo avisa.'}];
+let POL='lock', RTT=140, JIT=20, BUF=60, MINE=false, PAUSA=false, saltoMax=0;
+let prevOtro=null, dtFrame=0, tSim=0, ultimo=null;
+
+POLS.forEach(p=>{ const b=document.createElement('button');
+  b.textContent=p.n; b.dataset.id=p.id;
+  b.onclick=()=>{POL=p.id; saltoMax=0; prevOtro=null; pintaPol();};
+  $('pols').appendChild(b); });
+function pintaPol(){ [...$('pols').children].forEach(b=>b.classList.toggle('on', b.dataset.id===POL));
+  $('verdict').textContent = POLS.find(p=>p.id===POL).d; }
+pintaPol();
+
+function slider(id,out,set){ const e=$(id);
+  const f=()=>{ set(+e.value); $(out).textContent=e.value+" ms"; }; e.oninput=f; f(); }
+slider('s_rtt','v_rtt', v=>{RTT=v; saltoMax=0; prevOtro=null;});
+slider('s_jit','v_jit', v=>{JIT=v;});
+slider('s_buf','v_buf', v=>{BUF=v;});
+
+$('b_take').onclick = e => {
+  MINE=!MINE;
+  if(MINE){ hist=[{t:tSim, s:integral(PLAN_A,tSim), v:0}]; inputHum=0; }
+  e.target.classList.toggle('on',MINE);
+  e.target.textContent = MINE ? "Devolver el control" : "Tomar el control (← →)";
+  $('hint').textContent = MINE ? "manejás vos: ← →" : "corriendo sola, determinista";
+};
+$('b_pause').onclick = e => { PAUSA=!PAUSA; e.target.classList.toggle('on',PAUSA); };
+addEventListener('keydown', e=>{ if(!MINE) return;
+  if(e.key==='ArrowLeft'){ inputHum=-1; e.preventDefault(); }
+  if(e.key==='ArrowRight'){ inputHum=1; e.preventDefault(); } });
+addEventListener('keyup', e=>{ if(!MINE) return;
+  if(e.key==='ArrowLeft' && inputHum<0) inputHum=0;
+  if(e.key==='ArrowRight' && inputHum>0) inputHum=0; });
+
+const cv=$('track'), cx=cv.getContext('2d'), cm=$('mink'), mx=cm.getContext('2d');
+const ALTO = {track:300, mink:250};
+function resize(){ const dpr=devicePixelRatio||1;
+  for(const c of [cv,cm]){ const w=c.getBoundingClientRect().width, h=ALTO[c.id];
+    c.width=Math.max(1,w*dpr); c.height=h*dpr; c.style.height=h+"px"; } }
+const css = v => getComputedStyle(document.body).getPropertyValue(v).trim();
+
+function pintaPista(q){
+  const dpr=devicePixelRatio||1, w=cv.width, h=cv.height, pad=46*dpr;
+  cx.clearRect(0,0,w,h);
+  const filas=[["Tu pantalla",q.mia],["La pantalla del otro",q.suya],["La verdad",q.verdad]];
+  const esc=(w-2*pad)/W, cols=[css('--accent2'),css('--accent')];
+  filas.forEach((f,i)=>{
+    const y = pad + i*(h-1.9*pad)/2.6;
+    cx.strokeStyle=css('--line'); cx.lineWidth=1*dpr;
+    cx.beginPath(); cx.moveTo(pad,y); cx.lineTo(w-pad,y); cx.stroke();
+    cx.fillStyle=css('--dim'); cx.font=(11.5*dpr)+"px ui-sans-serif,system-ui,sans-serif";
+    cx.fillText(f[0], pad, y-15*dpr);
+    if(i<2){ cx.strokeStyle=css('--dim'); cx.globalAlpha=.4; cx.lineWidth=1.2*dpr;
+      [0,1].forEach(k=>{ cx.beginPath(); cx.arc(pad+fold(q.verdad[k])*esc, y, 7.5*dpr, 0, 7); cx.stroke(); });
+      cx.globalAlpha=1; }
+    [0,1].forEach(k=>{ cx.fillStyle=cols[k];
+      cx.beginPath(); cx.arc(pad+fold(f[1][k])*esc, y, 7*dpr, 0, 7); cx.fill(); });
+  });
+  cx.font=(11*dpr)+"px ui-sans-serif,system-ui,sans-serif";
+  cx.fillStyle=cols[0]; cx.fillText("● vos", pad, h-12*dpr);
+  cx.fillStyle=cols[1]; cx.fillText("● el otro", pad+62*dpr, h-12*dpr);
+  cx.fillStyle=css('--dim'); cx.fillText("○ dónde está de verdad", pad+150*dpr, h-12*dpr);
+  // "salto" = sólo lo que excede al movimiento que la ficha podía hacer sola
+  const o=fold(q.mia[1]);
+  if(prevOtro!==null && q.m.inventa){
+    const exceso = Math.abs(o-prevOtro) - VMAX*dtFrame;
+    if(exceso > 1) saltoMax = Math.max(saltoMax, exceso);
+  }
+  prevOtro=o;
+}
+function pintaMink(t){
+  const dpr=devicePixelRatio||1, w=cm.width, h=cm.height, pad=34*dpr;
+  mx.clearRect(0,0,w,h);
+  const xa=pad+44*dpr, xb=w-pad-44*dpr, L=RTT/2000, VENT=2.0, esc=(h-2*pad)/VENT, t0=t-VENT;
+  mx.strokeStyle=css('--line'); mx.lineWidth=1.5*dpr;
+  [xa,xb].forEach(x=>{ mx.beginPath(); mx.moveTo(x,pad); mx.lineTo(x,h-pad); mx.stroke(); });
+  mx.fillStyle=css('--dim'); mx.font=(11*dpr)+"px ui-sans-serif,system-ui,sans-serif";
+  mx.fillText("vos", xa-11*dpr, pad-11*dpr); mx.fillText("el otro", xb-20*dpr, pad-11*dpr);
+  mx.save(); mx.translate(13*dpr,h/2); mx.rotate(-Math.PI/2); mx.textAlign="center";
+  mx.fillText("el tiempo va para abajo",0,0); mx.restore();
+  for(let k=Math.ceil(t0/.25); k*.25<=t; k++){
+    const env=k*.25; if(env<0) continue;
+    const y0=pad+(env-t0)*esc, y1=pad+(env+L-t0)*esc;
+    if(y1>h-pad || y0<pad) continue;
+    const izq = k%2===0, col = izq?css('--accent2'):css('--accent');
+    mx.strokeStyle=col; mx.lineWidth=1.4*dpr;
+    mx.beginPath(); mx.moveTo(izq?xa:xb, y0); mx.lineTo(izq?xb:xa, y1); mx.stroke();
+    mx.save(); mx.translate(izq?xb:xa, y1);
+    mx.rotate(Math.atan2(y1-y0, izq?xb-xa:xa-xb));
+    mx.beginPath(); mx.moveTo(0,0); mx.lineTo(-8*dpr,-3.6*dpr); mx.lineTo(-8*dpr,3.6*dpr);
+    mx.closePath(); mx.fillStyle=col; mx.fill(); mx.restore();
+  }
+  const ym=pad+(h-2*pad)*.52;
+  mx.setLineDash([5*dpr,5*dpr]); mx.strokeStyle=css('--dim'); mx.lineWidth=1*dpr;
+  mx.beginPath(); mx.moveTo(xa,ym); mx.lineTo(xb,ym); mx.stroke(); mx.setLineDash([]);
+  mx.fillStyle=css('--dim'); mx.font=(10.5*dpr)+"px ui-sans-serif,system-ui,sans-serif";
+  mx.fillText("el «mismo instante»: ninguna flecha puede acostarse acá", xa+8*dpr, ym-8*dpr);
+}
+
+const MT=[["Tu mano tarda","mano","ms",250],
+          ["Antigüedad de lo que ves del otro","d","ms",400],
+          ["Salto máximo al corregir","salto","px",null],
+          ["Distancia a dónde está de verdad","lejos","px",null]];
+MT.forEach(([k])=>{ const d=document.createElement('div'); d.className='meter';
+  d.innerHTML=`<div class="k">${k}</div><div class="v">—</div><div class="bar"><i style="width:0"></i></div>`;
+  $('meters').appendChild(d); });
+
+function loop(now){
+  if(ultimo===null) ultimo=now;
+  dtFrame = Math.min(.05,(now-ultimo)/1000);
+  if(!PAUSA) tSim += dtFrame; else dtFrame = 0;
+  ultimo=now;
+  const cfg={pol:POL, L:RTT/2000, J:JIT/1000, buf:BUF/1000};
+  if(MINE) pasoHum(tSim);
+  const q=cuadro(tSim,cfg,MINE);
+  pintaPista(q); pintaMink(tSim);
+  const val={mano:q.m.mano, d:q.m.d, salto:saltoMax, lejos:q.m.lejos};
+  const topeDin = Math.max(2*VMAX*(RTT/2000), 1);
+  MT.forEach(([k,key,u,tope],i)=>{ const el=$('meters').children[i];
+    el.children[1].textContent = f1(val[key])+" "+u;
+    el.children[2].firstElementChild.style.width =
+      Math.min(100, val[key]/(tope||topeDin)*100)+"%"; });
+  requestAnimationFrame(loop);
+}
+addEventListener('resize', resize); resize(); requestAnimationFrame(loop);
+
+/* ═════════ 4. NTP ═════════ */
+function sellos(t1,di,dv,th,proc){ const t2=t1+di+th, t3=t2+proc, t4=t3-th+dv; return [t1,t2,t3,t4]; }
+function estimar(s){ return {off:((s[1]-s[0])+(s[2]-s[3]))/2, delay:(s[3]-s[0])-(s[2]-s[1])}; }
+function ntp(){
+  const di=+$('s_di').value, dv=+$('s_dv').value, th=+$('s_th').value, proc=3;
+  $('v_di').textContent=di+" ms"; $('v_dv').textContent=dv+" ms"; $('v_th').textContent=th+" ms";
+  const s=sellos(0,di,dv,th,proc), e=estimar(s), err=e.off-th;
+  ["t1","t2","t3","t4"].forEach((id,i)=>$(id).textContent=f2(s[i]));
+  $('o_d').textContent=f2(e.delay); $('o_o').textContent=f2(e.off);
+  $('o_r').textContent=f2(th); $('o_e').textContent=f2(err);
+  $('ntp_txt').innerHTML = Math.abs(err)<1e-9
+    ? `Caminos simétricos: el estimador acierta. <b>Es la única situación en la que acierta, y no hay forma de saber desde acá que estás en ella.</b> Lo honesto sigue siendo el intervalo: ${f2(e.off)} ± ${f2(e.delay/2)} ms.`
+    : `El estimador se equivoca en <b>${f2(err)} ms</b>: exactamente la mitad de la asimetría (${di} − ${dv} = ${di-dv}). Ninguno de los cuatro sellos delata el error. Lo único cierto es que el desfase está en algún punto de <b>${f2(e.off)} ± ${f2(e.delay/2)} ms</b>.`;
+  $('twin').innerHTML="";
+}
+["s_di","s_dv","s_th"].forEach(id=>$(id).oninput=ntp); ntp();
+
+/* Los cuatro sellos sólo dependen de (ida+θ) y (vuelta−θ). Entonces hay una
+   familia entera de mundos que producen exactamente los mismos números:
+   ida−δ, vuelta+δ, θ+δ, para cualquier δ. Ninguno es más real que otro. */
+function gemelo(di,dv,th){
+  let d = (di-dv)/2;                                  // el mundo simétrico
+  if(Math.abs(d) < 1) d = -Math.min(di,dv)/2;         // si ya es simétrico, uno que no lo sea
+  return {di:di-d, dv:dv+d, th:th+d};
+}
+$('b_twin').onclick=()=>{
+  const di=+$('s_di').value, dv=+$('s_dv').value, th=+$('s_th').value, proc=3;
+  const g=gemelo(di,dv,th);
+  const s=sellos(0,di,dv,th,proc), s2=sellos(0,g.di,g.dv,g.th,proc);
+  const ok = s.every((x,i)=>Math.abs(x-s2[i])<1e-9) && Math.abs(g.th-th)>1e-9;
+  $('twin').innerHTML =
+   `<div>el mundo que elegiste — ida ${f1(di)} · vuelta ${f1(dv)} · desfase real ${f1(th)} &nbsp;→&nbsp; [${s.map(f2).join(", ")}]</div>
+    <div>otro mundo posible &nbsp;&nbsp;— ida ${f1(g.di)} · vuelta ${f1(g.dv)} · desfase real ${f1(g.th)} &nbsp;→&nbsp; [${s2.map(f2).join(", ")}]</div>
+    <div style="margin-top:.6rem" class="${ok?'pass':'fail'}">${ok
+      ? "Los cuatro sellos son idénticos. Los dos mundos tienen desfases reales distintos y ninguna medición hecha desde los extremos puede distinguirlos — y no son dos: son una familia infinita, una por cada manera de repartir la demora entre la ida y la vuelta. Elegir la mitad exacta es una convención, no un resultado."
+      : "no coinciden: hay un error en la construcción."}</div>`;
+};
+
+/* ═════════ 5. banco de pruebas ═════════ */
+const T=[], tb=document.querySelector('#tests tbody');
+function chk(n,esp,obt,tol,fmt=f2){
+  const ok = (typeof esp==='boolean') ? obt===esp : Math.abs(obt-esp)<=tol;
+  T.push(ok);
+  tb.insertRow().innerHTML=`<td class="num dim">${T.length}</td><td>${n}</td>
+    <td class="num">${typeof esp==='boolean'?esp:fmt(esp)}</td>
+    <td class="num">${typeof obt==='boolean'?obt:fmt(obt)}</td>
+    <td class="${ok?'pass':'fail'}">${ok?'✓':'✗'}</td>`;
+}
+const ent = x => Math.round(x).toLocaleString('es');
+
+/* — constantes y distancias, contra tablas públicas — */
+chk("velocidad de grupo en fibra = c / 1,4682 (km/s)", 204190.5, V_FIBRA, 1, ent);
+chk("Buenos Aires–Tokio, gran círculo (km; tabla 18 362)", 18362, haversine(CIU["Buenos Aires"],CIU["Tokio"]), 92, ent);
+chk("Nueva York–Londres (km; tabla 5 570)", 5570, haversine(CIU["Nueva York"],CIU["Londres"]), 28, ent);
+chk("Sídney–Londres (km; tabla 16 993)", 16993, haversine(CIU["Sídney"],CIU["Londres"]), 85, ent);
+chk("Chicago–Nueva York (km; tabla 1 145)", 1145, haversine(CIU["Chicago"],CIU["Nueva York"]), 15, ent);
+{
+  const p = 2*haversine(CIU["Nueva York"],CIU["Londres"])/V_FIBRA*1000;
+  chk("piso NY–Londres por fibra recta (ms)", 54.56, p, .3);
+  chk("el cable real más rápido (58,95 ms) está por encima del piso", true, 58.95>p, 0);
+  chk("…y a menos del 15 % por encima", true, 58.95/p < 1.15, 0);
+  chk("Buenos Aires–Tokio por fibra (ms)", 179.85, 2*haversine(CIU["Buenos Aires"],CIU["Tokio"])/V_FIBRA*1000, .6);
+}
+/* — la pista — */
+{
+  let mayor=0, fuera=false, p=fold(integral(PLAN_B,0));
+  for(let t=0;t<40;t+=1/240){ const q=fold(integral(PLAN_B,t));
+    mayor=Math.max(mayor,Math.abs(q-p)); p=q; if(q<-1e-9||q>W+1e-9) fuera=true; }
+  chk("el rebote nunca saca la ficha de la pista", false, fuera, 0);
+  chk("el rebote es continuo: ningún paso supera v·dt (px)", true, mayor <= VMAX/240+1e-9, 0);
+  chk("…y el tope se alcanza en los tramos rectos (px)", VMAX/240, mayor, 1e-6, x=>x.toFixed(4));
+  chk("misma semilla ⇒ misma trayectoria, bit a bit", true,
+      [0,3.7,11.4,29.9].every(t=>integral(PLAN_B,t)===integral(segmentos(4407),t)), 0);
+  chk("semillas distintas ⇒ planes distintos", true, PLAN_A[0].dur!==PLAN_B[0].dur, 0);
+}
+/* — el teorema, preguntándole a la implementación de arriba — */
+{
+  const L=.07, buf=.05, t=12.3;
+  const cLock  = cuadro(t,{pol:'lock',  L, J:0, buf},false);
+  const cRoll  = cuadro(t,{pol:'roll',  L, J:0, buf},false);
+  const cInt   = cuadro(t,{pol:'interp',L, J:0, buf},false);
+  chk("lockstep: tu mano tarda exactamente L (ms)", 70, cLock.m.mano, 1e-9);
+  chk("lockstep: d = L, o sea d ≥ L con igualdad (ms)", 70, cLock.m.d, 1e-9);
+  chk("lockstep: las dos pantallas muestran lo mismo, dígito por dígito", true,
+      cLock.mia.every((x,i)=>x===cLock.suya[i]), 0);
+  chk("interpolación: d = L + buffer (ms)", 120, cInt.m.d, 1e-9);
+  chk("interpolación: las dos pantallas NO coinciden", true,
+      Math.abs(cInt.mia[1]-cInt.suya[1])>1e-9, 0);
+  chk("interpolación: tu mano no paga nada (ms)", 0, cInt.m.mano, 1e-9);
+  chk("predicción: d = 0 < L, y por eso tiene que inventar", true,
+      cRoll.m.d===0 && cRoll.m.inventa, 0);
+  chk("la verdad no depende de qué política mires (px)", 0,
+      Math.abs(cRoll.verdad[1]-cInt.verdad[1]), 1e-9);
+  chk("lockstep muestra la verdad de hace L, no otra cosa (px)", 0,
+      Math.abs(cLock.mia[1]-integral(PLAN_B,t-L)), 1e-9);
+  chk("subir el buffer 30 ms sube d exactamente 30 ms", 30,
+      cuadro(t,{pol:'interp',L,J:0,buf:buf+.03},false).m.d - cInt.m.d, 1e-9);
+  chk("bajar el RTT a cero deja a lockstep sin nada que cobrar (ms)", 0,
+      cuadro(t,{pol:'lock',L:0,J:0,buf},false).m.mano, 1e-9);
+}
+{
+  const L=.1; let peor=0;                       // peor caso de la extrapolación
+  for(let k=0;k<=2000;k++){ const tc=L*k/2000;
+    peor=Math.max(peor, Math.abs(VMAX*L - (VMAX*tc - VMAX*(L-tc)))); }
+  chk("error máximo de la predicción con L = 100 ms (px)", 2*VMAX*L, peor, 1e-6);
+  chk("la cota 2·v·L se alcanza si el otro invierte al empezar la ventana", true,
+      Math.abs(peor-2*VMAX*L)<1e-9, 0);
+}
+/* — NTP — */
+{
+  let peorErr=0, dentro=true, r=rng(31337);
+  for(let i=0;i<8000;i++){
+    const di=1+r()*200, dv=1+r()*200, th=(r()-.5)*600, proc=r()*6;
+    const e=estimar(sellos(0,di,dv,th,proc));
+    peorErr=Math.max(peorErr, Math.abs((e.off-th)-(di-dv)/2));
+    if(th < e.off-e.delay/2-1e-9 || th > e.off+e.delay/2+1e-9) dentro=false;
+  }
+  chk("en 8 000 casos el error es exactamente (ida − vuelta)/2", 0, peorErr, 1e-9, x=>x.toExponential(1));
+  chk("el desfase real siempre cae dentro de θ̂ ± δ/2", true, dentro, 0);
+  const a=sellos(0,20,20,0,0), b=sellos(0,30,10,-10,0);
+  chk("dos mundos distintos, los cuatro sellos idénticos", true,
+      a.every((x,i)=>Math.abs(x-b[i])<1e-12), 0);
+  chk("el mundo gemelo del botón: mismos sellos y distinto desfase, siempre", true, (()=>{
+      const r2=rng(555);
+      for(let i=0;i<3000;i++){
+        const di=1+r2()*200, dv=1+r2()*200, th=(r2()-.5)*300, proc=r2()*6;
+        const g=gemelo(di,dv,th);
+        const s=sellos(0,di,dv,th,proc), s2=sellos(0,g.di,g.dv,g.th,proc);
+        if(!s.every((x,j)=>Math.abs(x-s2[j])<1e-9)) return false;   // indistinguibles
+        if(Math.abs(g.th-th)<1e-9) return false;                     // pero distintos
+        if(g.di<=0 || g.dv<=0) return false;                         // y físicamente posibles
+      }
+      return true; })(), 0);
+  chk("…también cuando los caminos ya son simétricos", true, (()=>{
+      const g=gemelo(20,20,5);
+      const s=sellos(0,20,20,5,3), s2=sellos(0,g.di,g.dv,g.th,3);
+      return s.every((x,j)=>Math.abs(x-s2[j])<1e-9) && Math.abs(g.th-5)>1e-9; })(), 0);
+}
+/* — jitter buffer — */
+{
+  const r=rng(777), base=60, jit=40, N=40000, ll=[];
+  for(let i=0;i<N;i++) ll.push(base+r()*jit);
+  const tarde = b => ll.filter(x=>x>base+b).length/N;
+  const pct = x => (x*100).toFixed(1)+" %";
+  chk("sin buffer llega tarde casi todo", 1, tarde(0), .01, pct);
+  chk("con 20 ms de buffer llega tarde la mitad", .5, tarde(20), .02, pct);
+  chk("con 40 ms de buffer no llega tarde ninguno", 0, tarde(40), 1e-9, pct);
+  chk("la curva es monótona: más buffer nunca empeora", true,
+      [0,10,20,30,40].every((b,i,a)=> i===0 || tarde(b) <= tarde(a[i-1])+1e-12), 0);
+}
+{
+  const p=T.filter(Boolean).length, s=$('score');
+  s.textContent = `${p} de ${T.length} pasan.`;
+  s.className = "mono " + (p===T.length ? "pass" : "fail");
+}
+</script>
+</body>
+</html>
