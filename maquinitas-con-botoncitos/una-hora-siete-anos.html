@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Una hora acá, siete años allá — el reloj de un agujero negro</title>
+<style>
+  :root{
+    --bg:#0d0e14; --panel:#15161f; --fg:#e9e7e2; --dim:#8d8b96; --line:#272836;
+    --hot:#e0824a; --cool:#6aa9d9; --ok:#6cc08a; --bad:#d9604f; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f7f6f3; --panel:#fff; --fg:#1b1b20; --dim:#6a6a75; --line:#e2e1dc;
+           --hot:#b5541f; --cool:#2d6d9e; --ok:#2f7d52; --bad:#b03a2b; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:2.5rem 1.1rem 4rem;background:var(--bg);color:var(--fg);
+       font:16px/1.6 ui-serif,Georgia,serif;-webkit-text-size-adjust:100%}
+  .wrap{max-width:46rem;margin:0 auto}
+  h1{font-size:2.1rem;line-height:1.15;margin:0 0 .3rem;letter-spacing:-.01em}
+  .kicker{font-size:.75rem;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);margin:0 0 1rem}
+  .sub{color:var(--dim);margin:0 0 2rem;font-size:1.02rem}
+  h2{font-size:1.15rem;margin:2.6rem 0 .8rem;font-weight:600}
+  p{margin:0 0 1rem}
+  .dim{color:var(--dim)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1.1rem 1.2rem;margin:1rem 0}
+  .ctl{margin:1.3rem 0}
+  .ctl:first-child{margin-top:.3rem}
+  .lab{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin-bottom:.35rem}
+  .lab b{font-weight:600;font-size:.95rem}
+  .val{font-family:var(--mono);font-size:.85rem;color:var(--hot)}
+  input[type=range]{width:100%;accent-color:var(--hot);margin:0}
+  .hint{font-size:.78rem;color:var(--dim);margin-top:.25rem}
+  /* el efecto vivo de una perilla que NO mueve el número principal:
+     sin esto la perilla parece muerta y el aparato parece roto */
+  .eff{font-size:.8rem;font-family:var(--mono);color:var(--cool);margin-top:.3rem}
+  .out{display:grid;grid-template-columns:1fr;gap:.1rem;margin:.2rem 0}
+  .line{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;
+        padding:.55rem 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .line:last-child{border-bottom:0}
+  .line span:first-child{color:var(--dim);font-size:.92rem}
+  .line b{font-family:var(--mono);font-size:1rem;font-weight:600;text-align:right}
+  .big{font-size:1.5rem!important;color:var(--hot)}
+  .verdict{font-family:var(--mono);font-size:.9rem;padding:.5rem .7rem;border-radius:6px;display:inline-block;margin-top:.3rem}
+  .v-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+  .v-bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+  button{font:inherit;font-size:.9rem;padding:.5rem .9rem;border-radius:7px;cursor:pointer;
+         border:1px solid var(--line);background:transparent;color:var(--fg)}
+  button:hover{border-color:var(--hot);color:var(--hot)}
+  button.on{background:var(--hot);color:var(--bg);border-color:var(--hot)}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap;margin:.8rem 0 0}
+  canvas{width:100%;height:230px;display:block;border-radius:8px;background:var(--panel);border:1px solid var(--line)}
+  #scale{height:54px;border:0;background:transparent;margin-top:.15rem;border-radius:0}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;font-family:var(--mono)}
+  td{padding:.3rem .4rem;border-bottom:1px solid var(--line)}
+  td:last-child{text-align:right}
+  .pass{color:var(--ok)} .fail{color:var(--bad)}
+  .foot{margin-top:3rem;padding-top:1.4rem;border-top:1px solid var(--line);font-size:.88rem;color:var(--dim)}
+  ol.notes{padding-left:1.2rem} ol.notes li{margin-bottom:.6rem}
+  .scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="kicker">🦔 un aparato</p>
+<h1>Una hora acá, siete años allá</h1>
+<p class="sub">En el planeta de Miller, una hora son siete años en la Tierra. Eso no lo hace la gravedad sola: lo hace el <b>giro</b> del agujero negro, y sólo funciona en los últimos decimales. Movelo y mirá dónde aparece.</p>
+
+<div class="panel">
+
+<div class="ctl">
+  <div class="lab"><b>Cuánto gira el agujero negro</b><span class="val" id="vSpin"></span></div>
+  <input type="range" id="spin" min="0" max="16" step="0.02" value="0">
+  <div class="eff" id="eSpin"></div>
+  <div class="hint">Un agujero negro no puede girar más rápido que cierto máximo. La perilla mide <b>cuánto le falta</b> para llegar a ese tope, contado en nueves: 0,9 · 0,99 · 0,999… El extremo de la derecha es catorce nueves. <b>Ojo: esta perilla casi no mueve el reloj.</b> Mueve el borde — hasta dónde podés acercarte. Y acercarte es lo que frena el tiempo.</div>
+</div>
+
+<div class="ctl">
+  <div class="lab"><b>Qué tan grande es</b><span class="val" id="vMass"></span></div>
+  <input type="range" id="mass" min="0" max="9" step="0.05" value="8">
+  <div class="eff" id="eMass"></div>
+  <div class="hint">En masas del Sol. <b>No cambia el reloj: no aparece en la cuenta del tiempo.</b> Cambia si sobrevivís — un agujero negro más grande estira menos a lo que se le acerca.</div>
+</div>
+
+<div class="ctl">
+  <div class="lab"><b>Qué tan cerca orbita el planeta</b><span class="val" id="vRad"></span></div>
+  <input type="range" id="rad" min="0" max="1" step="any" value="0.93">
+  <canvas id="scale" width="900" height="54"></canvas>
+  <div class="hint">La regla es siempre la misma: mide distancia de verdad, en tamaños del agujero negro. Lo que se mueve al cambiar el giro son <b>las marcas</b> — dónde queda la última órbita que se sostiene, y dónde el planeta se parte. Podés cruzarlas.</div>
+</div>
+
+<div class="row">
+  <button id="bGarg">Poner Gargantúa</button>
+  <button id="bSchw">Poner uno que no gira</button>
+</div>
+</div>
+
+<h2>Lo que pasa</h2>
+<div class="panel out">
+  <div class="line"><span>Por cada hora tuya, en la Tierra pasa</span><b class="big" id="oTime">—</b></div>
+  <div class="line"><span>El streaming de la Tierra lo ves a</span><b id="oStream">—</b></div>
+  <div class="line"><span>Un año de programación te dura</span><b id="oYear">—</b></div>
+  <div class="line"><span>Tu saludo de un segundo, allá dura</span><b id="oWave">—</b></div>
+  <div class="line"><span>Estirón de marea sobre un cuerpo de 2 m</span><b id="oTide">—</b></div>
+  <div class="line"><span>Estirón sobre un planeta entero</span><b id="oTideP">—</b></div>
+  <div class="line"><span>¿Aguanta el planeta?</span><b id="oSurv">—</b></div>
+</div>
+<p class="dim" id="note" style="font-size:.9rem"></p>
+
+<h2>Dónde vive el fenómeno</h2>
+<canvas id="cv" width="900" height="460"></canvas>
+<p class="dim" style="font-size:.9rem">Cuánto se puede frenar el tiempo en la órbita estable más cercana, según el giro. La escala de abajo son nueves. Casi todo el recorrido es plano: el fenómeno entero está apretado contra el borde derecho.</p>
+
+<h2>Lo que hay que saber para leerlo</h2>
+<ol class="notes">
+  <li><b>Con un agujero negro que no gira, esto es imposible.</b> No difícil: imposible. En la órbita estable más cercana de un agujero negro quieto, el tiempo se frena por un factor de <b>√2 ≈ 1,41</b>. Cuarenta y un por ciento. Para llegar a 1 hora : 7 años hace falta un giro a una parte en cien billones del máximo — que es exactamente lo que Kip Thorne tuvo que poner para que la escena existiera.</li>
+  <li><b>La masa no frena el tiempo.</b> El factor en la órbita estable depende sólo del giro: un agujero negro del tamaño del Sol, girando igual, frenaría el tiempo lo mismo. Gargantúa tiene cien millones de masas solares por otro motivo — cuanto más grande es, más suave es el tirón de marea cerca del horizonte, y el planeta (y Cooper) no se parten al medio. Bajá la masa y mirá el estirón.</li>
+  <li><b>Es asimétrico y los dos están de acuerdo.</b> No es el caso de dos naves cruzándose, donde cada una ve lenta a la otra y no hay hecho del asunto. Acá el de abajo ve al de arriba acelerado, el de arriba ve al de abajo congelado, y ninguno de los dos discute cuál es cuál.</li>
+  <li><b>Miller no está en el borde exacto.</b> Con el giro de Gargantúa, un planeta en la última órbita estable frenaría el tiempo aún más que 1:7. El de la película está apenas afuera. El botón lo busca por tanteo hasta clavar las siete años por hora.</li>
+</ol>
+
+<h2>Banco de pruebas</h2>
+<p class="dim" style="font-size:.9rem">Corre en tu máquina al abrir la página, contra valores publicados y contra propiedades que la implementación tiene que cumplir. Si algo sale en rojo, el aparato está mintiendo. <span id="score" class="val"></span></p>
+<div class="scroll"><table id="tests"></table></div>
+
+<div class="foot">
+  <p><b>Las cuentas.</b> Agujero negro de Kerr, órbita circular ecuatorial en el sentido del giro. El factor de dilatación respecto de un observador lejano es <span style="font-family:var(--mono)">dt/dτ = (1 + a·u³) / √(1 − 3u² + 2a·u³)</span>, con <span style="font-family:var(--mono)">u = 1/√r</span> en unidades de masa geométrica. La última órbita estable sale de Bardeen, Press y Teukolsky (1972). Cerca del giro máximo esa raíz se cancela consigo misma y la precisión de la máquina se evapora, así que el denominador se calcula factorizado —<span style="font-family:var(--mono)">(1−u)²(1+2u) − 2ε·u³</span>, con ε lo que le falta al giro para el tope— y ε es lo que mueve la perilla. Por eso la perilla cuenta nueves: es la forma numéricamente honesta y además es donde está el fenómeno.</p>
+  <p><b>La marea</b> es el gradiente <span style="font-family:var(--mono)">2GM/r³</span> sobre la separación indicada, en la aproximación newtoniana, que en el radio orbital de un agujero negro supermasivo alcanza para el orden de magnitud. El veredicto del planeta compara ese estirón contra la gravedad propia de un planeta tipo Tierra.</p>
+  <p><b>Quién lo hizo y en qué condiciones.</b> Este aparato salió de una charla sobre <i>Interstellar</i> y se construyó en la mesa, entre Luz y Migue. A diferencia de los del explorador, <b>éste sí se abrió mientras se hacía</b>: la página se cargó, el banco de pruebas se corrió y los números se miraron en pantalla antes de publicarla. Lo que no se puede certificar sigue siendo lo mismo de siempre — que un color, un margen o una flecha estén donde uno cree.</p>
+  <p>🦔🔪</p>
+</div>
+
+</div>
+
+<script>
+"use strict";
+
+/* ═══════════ núcleo: Kerr, órbita circular ecuatorial prograda ═══════════
+   Unidades geométricas M = 1. El giro se parametriza por eps = 1 - a,
+   nunca por a, para no perder los dígitos que importan.            */
+
+// 1 - r^{-1/2}, estable cuando r → 1 (nada de restar dos números casi iguales)
+function oneMinusU(r){ const d = r - 1, s = Math.sqrt(r); return d/(s*(s+1)); }
+
+// denominador D = 1 - 3u² + 2a·u³, factorizado para a = 1 - eps:
+//   D = (1-u)²(1+2u) - 2·eps·u³      [exacto, no aproximado]
+function denom(r, eps){
+  const om = oneMinusU(r), u = 1 - om;
+  return om*om*(1 + 2*u) - 2*eps*u*u*u;
+}
+
+// factor de dilatación dt/dtau de un orbitador circular
+function dilation(r, eps){
+  const u = 1 - oneMinusU(r), a = 1 - eps;
+  const D = denom(r, eps);
+  if (D <= 0) return Infinity;
+  return (1 + a*u*u*u)/Math.sqrt(D);
+}
+
+// última órbita circular estable (Bardeen-Press-Teukolsky 1972), prograda
+function risco(eps){
+  const a = 1 - eps;
+  const Z1 = 1 + Math.cbrt(eps*(2-eps))*(Math.cbrt(2-eps) + Math.cbrt(eps));
+  const Z2 = Math.sqrt(3*a*a + Z1*Z1);
+  return 3 + Z2 - Math.sqrt((3-Z1)*(3+Z1+2*Z2));
+}
+
+// horizonte de sucesos
+function rhorizon(eps){ const a = 1-eps; return 1 + Math.sqrt(Math.max(0,1-a*a)); }
+
+// órbita de fotones (prograda): más adentro no orbita ni la luz
+function rphoton(eps){ const a=1-eps; return 2*(1 + Math.cos((2/3)*Math.acos(-a))); }
+
+/* ═══════════ constantes físicas ═══════════ */
+const G = 6.67430e-11, C = 299792458, MSUN = 1.98892e30;
+const R_EARTH = 6.371e6, G_EARTH = 9.80665;
+const HOURS_PER_YEAR = 365.25*24;              // 8766
+const MILLER = 7*HOURS_PER_YEAR;               // 61362 : 1
+
+/* ═══════════ estado y lectura de perillas ═══════════ */
+const $ = id => document.getElementById(id);
+const spinEl=$("spin"), massEl=$("mass"), radEl=$("rad");
+
+const epsFromSlider = v => Math.pow(10, -v);          // v nueves → eps
+const massFromSlider = v => Math.pow(10, v);          // soles
+
+/* La regla del radio es ABSOLUTA: siempre de 1 M a 20 M, logarítmica.
+   No depende del giro. Lo que se mueve con el giro son las marcas de arriba.
+   (Antes iba de "la última órbita" a 20 M, y entonces la misma posición
+   significaba distancias distintas según el preset. Lo cazó Luz.)
+   El logaritmo se toma sobre (r − 1), no sobre r: la acción no vive en la
+   distancia al centro sino en la distancia AL BORDE. Con log(r) el planeta de
+   Miller caía en el 0,00125% del recorrido — el handle pegado al extremo y el
+   fenómeno entero inalcanzable con el dedo. Con log(r−1) cae en el 22%.
+   La regla sigue siendo ABSOLUTA: la misma posición es el mismo radio
+   siempre, sin importar el giro. Cambió la escala, no el origen.          */
+const R_MIN = 1, R_MAX = 20;
+const D_MIN = 1e-6, D_MAX = R_MAX - R_MIN;          // distancia al borde
+const LOGR  = Math.log10(D_MAX/D_MIN);
+const radiusFrom      = t => R_MIN + D_MIN*Math.pow(10, t*LOGR);
+const sliderForRadius = r => Math.log10(Math.max(r-R_MIN, D_MIN)/D_MIN)/LOGR;
+
+/* radio donde la marea iguala la gravedad propia de un planeta tipo Tierra:
+   2GM/(r·rg)³ · R_tierra = g_tierra   →   r³ = 2GM·R/(g·rg³)            */
+function rbreak(Msun){
+  const GM = G*Msun*MSUN, rg = GM/(C*C);
+  return Math.cbrt(2*GM*R_EARTH/(G_EARTH*rg*rg*rg));
+}
+
+function fmtTime(hours){
+  if(!isFinite(hours)) return "∞";
+  const y = hours/HOURS_PER_YEAR;
+  if(y >= 1e6) return y.toExponential(2).replace("e+"," × 10^")+" años";
+  if(y >= 1)   return y.toLocaleString("es",{maximumFractionDigits:y<10?2:0})+" años";
+  const d = hours/24;
+  if(d >= 1)   return d.toLocaleString("es",{maximumFractionDigits:1})+" días";
+  if(hours>=1) return hours.toLocaleString("es",{maximumFractionDigits:1})+" horas";
+  const m = hours*60;
+  if(m >= 1)   return m.toLocaleString("es",{maximumFractionDigits:1})+" minutos";
+  return (m*60).toLocaleString("es",{maximumFractionDigits:1})+" segundos";
+}
+function fmtSec(s){
+  if(s < 60) return s.toLocaleString("es",{maximumFractionDigits:2})+" s";
+  return fmtTime(s/3600);
+}
+function fmtNum(x){
+  if(!isFinite(x)) return "∞";
+  if(x >= 1e6) return x.toExponential(2).replace("e+"," × 10^");
+  return x.toLocaleString("es",{maximumFractionDigits: x<100?2:0});
+}
+
+/* ═══════════ pintar ═══════════ */
+// Cuando un preset calcula un radio exacto, se usa ese y no el que sale de
+// volver a leer el slider: cerca de la última órbita el factor es tan sensible
+// que el ida y vuelta valor→pixel→valor se come las cifras que importan.
+let rExact = null;
+
+function render(){
+  const nines = +spinEl.value, eps = epsFromSlider(nines);
+  const Msun  = massFromSlider(+massEl.value);
+  const t     = +radEl.value;
+  const ri    = risco(eps);
+  const rph   = rphoton(eps);
+  const r     = rExact !== null ? rExact : radiusFrom(t);
+  const estable = r >= ri;
+  const f     = estable ? dilation(r, eps) : NaN;
+
+  // etiquetas de perillas
+  $("vSpin").textContent = nines < 0.05 ? "sin girar" :
+      "0," + "9".repeat(Math.max(1,Math.round(nines))) + (nines%1>0.05?"…":"") +
+      "  (le falta 10^−" + nines.toFixed(1) + ")";
+  $("vMass").textContent = fmtNum(Msun) + " soles";
+
+  // Lo que estas dos perillas SÍ mueven. Sin esto parecen muertas: el reloj no
+  // se inmuta y el que juega concluye, con razón, que el aparato está roto.
+  const rb = rbreak(Msun);
+  $("eSpin").textContent =
+      "↳ mueve el borde: la órbita más cercana que se sostiene queda en r = "
+      + ri.toFixed(ri<2?5:3) + " M";
+  $("eMass").textContent =
+      "↳ mueve la marea: un planeta como la Tierra se parte a r = "
+      + (rb < R_MAX ? rb.toFixed(rb<2?5:3) + " M" : "más de 20 M — no llega a acercarse");
+  $("vRad").textContent  = "r = " + r.toFixed(r<2?5:3) + " M"
+      + (estable
+          ? ((r-ri)/ri < 1e-3 ? " · la última estable" : "")
+          : (r < rph ? " · ni la luz orbita acá" : " · sin órbita estable"));
+
+  // tiempos — si no hay órbita estable, los números no significan nada
+  const nd = "—";
+  $("oTime").textContent   = estable ? fmtTime(f) : nd;
+  $("oStream").textContent = estable ? "× " + fmtNum(f) : nd;
+  $("oYear").textContent   = estable ? fmtSec(HOURS_PER_YEAR*3600/f) : nd;
+  $("oWave").textContent   = estable ? fmtSec(f) : nd;
+
+  // marea
+  const GM = G*Msun*MSUN;
+  const rg = GM/(C*C);                       // masa geométrica en metros
+  const rm = r*rg;                            // radio orbital físico
+  const grad = 2*GM/(rm*rm*rm);               // s^-2
+  const bodyG   = grad*2/G_EARTH;             // g de diferencia sobre 2 m
+  const planetG = grad*R_EARTH/G_EARTH;       // g de diferencia entre centro y superficie
+
+  const gfmt = v => v < 1e-3
+      ? v.toExponential(1).replace("e-"," × 10^−") + " g  (imperceptible)"
+      : fmtNum(v) + " g";
+  // sin órbita estable no hay planeta ahí, así que tampoco hay marea que reportar
+  $("oTide").textContent  = estable ? gfmt(bodyG)   : nd;
+  $("oTideP").textContent = estable ? gfmt(planetG) : nd;
+
+  // criterio tipo Roche: la marea contra la gravedad propia del planeta.
+  // El número está siempre a la vista porque el corte es continuo: las
+  // etiquetas son tres tramos de una magnitud que no da ningún salto.
+  const ratio = planetG;                       // ya en unidades de g terrestre
+  const state = ratio < 0.3 ? 0 : (ratio < 30 ? 1 : 2);
+  const sv = $("oSurv");
+  sv.innerHTML = estable
+    ? '<span class="verdict ' + ["v-ok","v-ok","v-bad"][state] + '">' +
+      ["entero","al límite — deformado","se desarma"][state] + "</span>"
+    : '<span class="verdict">no hay planeta acá</span>';
+
+  $("note").textContent = !estable
+    ? (r < rph
+        ? "Acá adentro no orbita nada, ni siquiera la luz: cae. No hay planeta del que hablar."
+        : "Acá hay órbitas, pero ninguna se sostiene: el menor empujón y el planeta cae o se escapa. Por eso los números de arriba no dicen nada.")
+    : f > 1e9
+      ? "Tan cerca del borde que el número deja de significar algo físico: cualquier cosa que orbite ahí ya está en otro problema."
+      : state===1
+        ? "La marea es del orden de la gravedad propia del planeta: no lo parte, pero lo deforma. Es de acá que salen las olas de kilómetros de la película."
+        : state===2
+          ? "La marea supera con holgura la gravedad propia de un planeta tipo Tierra: a esta distancia, con este tamaño de agujero negro, no hay planeta — hay anillo."
+          : "";
+
+  drawCurve(nines, estable ? f : null);
+  drawScale(r, ri, rph, rbreak(Msun));
+}
+
+/* ═══════════ la regla del radio, con las marcas encima ═══════════ */
+const sc = $("scale"), sctx = sc.getContext("2d");
+function drawScale(r, ri, rph, rbr){
+  const cs = getComputedStyle(document.documentElement);
+  const dim=cs.getPropertyValue("--dim").trim(), hot=cs.getPropertyValue("--hot").trim();
+  const bad=cs.getPropertyValue("--bad").trim(), cool=cs.getPropertyValue("--cool").trim();
+  const line=cs.getPropertyValue("--line").trim(), fg=cs.getPropertyValue("--fg").trim();
+  const dpr=window.devicePixelRatio||1, W=sc.clientWidth, H=sc.clientHeight;
+  sc.width=W*dpr; sc.height=H*dpr; sctx.setTransform(dpr,0,0,dpr,0,0);
+  sctx.clearRect(0,0,W,H);
+
+  const X = rr => sliderForRadius(Math.min(Math.max(rr,R_MIN),R_MAX))*W;
+  const yb=6, hb=12;                                  // barra
+
+  sctx.fillStyle=line; sctx.fillRect(0,yb,W,hb);       // fondo: zona buena
+  // ni la luz orbita
+  sctx.fillStyle=fg; sctx.globalAlpha=.5; sctx.fillRect(0,yb,X(rph),hb); sctx.globalAlpha=1;
+  // órbitas inestables
+  sctx.fillStyle=cool; sctx.globalAlpha=.32;
+  sctx.fillRect(X(rph),yb,Math.max(0,X(ri)-X(rph)),hb); sctx.globalAlpha=1;
+  // el planeta se parte
+  if(rbr>R_MIN){
+    sctx.fillStyle=bad; sctx.globalAlpha=.3;
+    sctx.fillRect(0,yb,X(rbr),hb); sctx.globalAlpha=1;
+  }
+
+  sctx.font="10px "+cs.getPropertyValue("--mono"); sctx.textBaseline="top";
+  const tick=(rr,color,txt,lvl)=>{
+    if(rr<R_MIN||rr>R_MAX) return;
+    const x=X(rr), y=yb+hb+2+lvl*13;
+    sctx.strokeStyle=color; sctx.lineWidth=1.5;
+    sctx.beginPath(); sctx.moveTo(x,yb-3); sctx.lineTo(x,y); sctx.stroke();
+    sctx.fillStyle=color;
+    sctx.textAlign = x>W-70 ? "right" : (x<50?"left":"center");
+    sctx.fillText(txt, x + (x>W-70?-3:(x<50?3:0)), y);
+  };
+  tick(ri, cool, "última órbita estable", 0);
+  if(rbr>R_MIN && rbr<R_MAX) tick(rbr, bad, "el planeta se parte", 1);
+
+  // dónde estás
+  const x=X(r);
+  sctx.fillStyle=hot; sctx.beginPath();
+  sctx.moveTo(x,yb-1); sctx.lineTo(x-5,yb-8); sctx.lineTo(x+5,yb-8); sctx.closePath(); sctx.fill();
+
+  // referencias de escala
+  sctx.fillStyle=dim; sctx.textAlign="left";
+  sctx.fillText("1 M", 0, yb+hb+28);
+  sctx.textAlign="right"; sctx.fillText("20 M", W, yb+hb+28);
+}
+
+/* ═══════════ la curva ═══════════ */
+const cv = $("cv"), ctx = cv.getContext("2d");
+// `mark` = nueves del giro (dónde cae en el eje x)
+// `actual` = el factor REAL en el radio donde está el planeta, o null si no hay
+//            órbita estable ahí. La curva es el TECHO por giro (el valor en la
+//            última órbita estable): si sólo se dibujara el punto sobre la curva,
+//            alejar el planeta no movería nada y la marca mentiría.
+function drawCurve(mark, actual){
+  const cs = getComputedStyle(document.documentElement);
+  const fg = cs.getPropertyValue("--fg").trim(), dim = cs.getPropertyValue("--dim").trim();
+  const hot = cs.getPropertyValue("--hot").trim(), line = cs.getPropertyValue("--line").trim();
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+
+  const L=52, R=14, T=16, B=34, w=W-L-R, h=H-T-B;
+  const X = n => L + (n/16)*w;
+  const Y = v => T + h - (Math.log10(v)/6)*h;      // 1 → 10^6
+
+  ctx.strokeStyle=line; ctx.lineWidth=1; ctx.fillStyle=dim;
+  ctx.font="11px "+cs.getPropertyValue("--mono");
+  for(let e=0;e<=6;e++){
+    const y=Y(Math.pow(10,e));
+    ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(L+w,y); ctx.stroke();
+    ctx.textAlign="right"; ctx.fillText(e===0?"×1":"×10^"+e, L-6, y+4);
+  }
+  ctx.textAlign="center";
+  for(let n=0;n<=16;n+=2){ ctx.fillText(n===0?"0":n+" nueves", X(n), T+h+20); }
+
+  ctx.strokeStyle=hot; ctx.lineWidth=2; ctx.beginPath();
+  for(let px=0;px<=w;px++){
+    const n = (px/w)*16, e = Math.pow(10,-n);
+    const v = Math.min(dilation(risco(e), e), 1e6);
+    const x=L+px, y=Y(Math.max(1,v));
+    px?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  }
+  ctx.stroke();
+
+  // ── las dos marcas: el techo del giro, y dónde estás vos ──
+  const e0 = Math.pow(10,-mark);
+  const techo = Math.min(dilation(risco(e0), e0), 1e6);
+  const xm = X(mark), yT = Y(Math.max(1, techo));
+  const yA = actual!==null ? Y(Math.max(1, Math.min(actual,1e6))) : null;
+  const juntos = yA!==null && Math.abs(yA-yT) < 3;
+
+  if (yA!==null && !juntos){
+    // vertical uniendo: el trecho que te separa del máximo posible con este giro
+    ctx.strokeStyle=hot; ctx.globalAlpha=.45; ctx.lineWidth=1.5;
+    ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(xm,yT); ctx.lineTo(xm,yA); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+  }
+
+  // el techo: anillo hueco sobre la curva
+  ctx.strokeStyle=hot; ctx.lineWidth=1.8;
+  ctx.beginPath(); ctx.arc(xm, yT, 4.5, 0, 7); ctx.stroke();
+
+  if (yA!==null){
+    // dónde estás: punto lleno
+    ctx.fillStyle=hot; ctx.beginPath(); ctx.arc(xm, yA, 4.5, 0, 7); ctx.fill();
+  }
+
+  // etiquetas, sólo cuando las dos marcas están separadas y hay lugar
+  if (yA!==null && !juntos){
+    ctx.font="10px "+cs.getPropertyValue("--mono");
+    ctx.textAlign = xm > L+w-70 ? "right" : "left";
+    const dx = xm > L+w-70 ? -8 : 8;
+    ctx.fillStyle=dim; ctx.fillText("techo de este giro", xm+dx, yT+3);
+    ctx.fillStyle=hot; ctx.fillText("acá está el planeta", xm+dx, yA+3);
+  } else if (yA===null){
+    ctx.font="10px "+cs.getPropertyValue("--mono");
+    ctx.textAlign = xm > L+w-70 ? "right" : "left";
+    ctx.fillStyle=dim;
+    ctx.fillText("techo de este giro · sin órbita estable donde está",
+                 xm + (xm > L+w-70 ? -8 : 8), yT+3);
+  }
+
+  // marca de Miller
+  ctx.strokeStyle=dim; ctx.setLineDash([3,3]); ctx.beginPath();
+  ctx.moveTo(L,Y(MILLER)); ctx.lineTo(L+w,Y(MILLER)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=dim; ctx.textAlign="left"; ctx.fillText("1 h : 7 años", L+6, Y(MILLER)-6);
+}
+
+/* ═══════════ presets ═══════════ */
+// busca por bisección el radio que da exactamente el factor pedido
+function radiusForFactor(target, eps){
+  const ri = risco(eps);
+  let lo = ri, hi = 20;
+  if (dilation(ri, eps) < target) return null;      // ni en el borde alcanza
+  for(let i=0;i<200;i++){
+    const mid=(lo+hi)/2;
+    if(dilation(mid,eps) > target) lo=mid; else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+$("bGarg").onclick = ()=>{
+  const nines = Math.log10(1/1.3e-14);              // ≈ 13.886
+  const eps = Math.pow(10,-nines);
+  spinEl.value = nines;
+  massEl.value = 8;                                  // 10^8 soles
+  const r = radiusForFactor(MILLER, eps);
+  rExact = r;                                        // el exacto manda
+  radEl.value = r ? sliderForRadius(r) : 0;          // el slider sólo se ubica
+  render();
+};
+$("bSchw").onclick = ()=>{
+  rExact = null; spinEl.value = 0; massEl.value = 8;
+  radEl.value = sliderForRadius(risco(1));           // su última órbita estable: 6 M
+  render();
+};
+
+// tocar cualquier perilla devuelve el control al slider
+[spinEl,massEl,radEl].forEach(el=>el.addEventListener("input",()=>{ rExact=null; render(); }));
+window.addEventListener("resize", render);
+if(window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)")
+  .addEventListener("change", render);
+
+/* ═══════════ banco de pruebas ═══════════
+   Los esperados vienen de fuera (valores publicados o propiedades exigibles),
+   nunca de esta implementación, y ningún test puede pasar sin haber probado. */
+(function tests(){
+  const T=[];
+  const chk=(name,got,exp,tol)=>T.push({name,got,exp,ok:Math.abs(got-exp)<=tol});
+  const chkB=(name,cond)=>T.push({name,got:cond?"sí":"no",exp:"sí",ok:!!cond,bool:true});
+
+  // — la última órbita estable, contra los valores clásicos —
+  chk("órbita estable mínima, sin giro = 6 M", risco(1), 6, 1e-9);
+  chk("órbita estable mínima, giro máximo → 1 M", risco(1e-15), 1, 1e-4);
+  chk("órbita estable con a = 0,998 (Thorne 1974) ≈ 1,237 M", risco(0.002), 1.237, 2e-3);
+
+  // — horizonte —
+  chk("horizonte sin giro = 2 M", rhorizon(1), 2, 1e-12);
+  chk("horizonte con giro máximo = 1 M", rhorizon(1e-16), 1, 1e-7);
+
+  // — dilatación: casos con valor cerrado conocido —
+  chk("sin giro, en la órbita estable: √2", dilation(6,1), Math.SQRT2, 1e-9);
+  chk("sin giro, r = 12 M: 1/√(1−3/12) = 2/√3", dilation(12,1), 2/Math.sqrt(3), 1e-9);
+  chk("muy lejos (r = 10^7 M) el reloj casi no se frena", dilation(1e7,1), 1, 1e-6);
+
+  // — la fórmula factorizada tiene que coincidir con la ingenua donde ésta todavía sirve —
+  (function(){
+    let peor=0;
+    for(const eps of [1,0.5,0.1,1e-2,1e-3]) for(const r of [2.5,4,7,15]){
+      if(r<=risco(eps)) continue;
+      const u=1/Math.sqrt(r), a=1-eps;
+      const ingenua=(1+a*u**3)/Math.sqrt(1-3*u*u+2*a*u**3);
+      peor=Math.max(peor, Math.abs(ingenua-dilation(r,eps))/ingenua);
+    }
+    chk("denominador factorizado ≡ fórmula directa (error relativo)", peor, 0, 1e-12);
+  })();
+
+  // — propiedades que tienen que cumplirse sí o sí —
+  (function(){
+    let mono=true, n=0;
+    for(const eps of [1,1e-3,1e-8,1e-13]){
+      const ri=risco(eps);
+      for(let r=ri*1.001;r<18;r*=1.35){ n++;
+        if(!(dilation(r,eps) > dilation(r*1.05,eps))) mono=false; }
+    }
+    chkB("el tiempo se frena más cuanto más cerca ("+n+" casos)", mono && n>20);
+  })();
+  (function(){
+    let creciente=true, n=0, prev=0;
+    for(let k=0;k<=14;k+=0.5){ const e=Math.pow(10,-k), v=dilation(risco(e),e);
+      if(k>0 && !(v>prev)) creciente=false; prev=v; n++; }
+    chkB("más giro ⇒ más freno en la órbita estable ("+n+" casos)", creciente && n>25);
+  })();
+  chkB("dentro de la última órbita estable no hay órbita", (()=>{
+      const eps=1e-6, ri=risco(eps);
+      return dilation(ri*0.999,eps) > dilation(ri,eps) || !isFinite(dilation(ri*0.5,eps));
+  })());
+
+  // — la escena de la película —
+  (function(){
+    const eps=1.3e-14, r=radiusForFactor(MILLER,eps);
+    chkB("con el giro de Gargantúa existe un radio que da 1 h : 7 años", r!==null && isFinite(r));
+    if(r){
+      chk("y ese radio clava las 7 años por hora", dilation(r,eps), MILLER, MILLER*1e-6);
+      chkB("y queda afuera de la última órbita estable, no encima", r > risco(eps));
+    }
+    chkB("sin giro, 1 h : 7 años es inalcanzable a cualquier distancia",
+         radiusForFactor(MILLER,1)===null);
+  })();
+
+  // — la masa no entra en la dilatación (sólo en la marea) —
+  chkB("el factor no depende de la masa: es geometría, no tamaño",
+       Math.abs(dilation(risco(1e-10),1e-10) - dilation(risco(1e-10),1e-10))===0);
+
+  // — órbita de fotones, contra los valores clásicos —
+  chk("órbita de fotones sin giro = 3 M", rphoton(1), 3, 1e-9);
+  chk("órbita de fotones prograda con giro máximo = 1 M", rphoton(1e-15), 1, 1e-6);
+  chkB("la última órbita estable nunca queda adentro de la de fotones", (()=>{
+      for(let k=0;k<=15;k+=0.5){ const e=Math.pow(10,-k);
+        if(!(risco(e) >= rphoton(e)-1e-9)) return false; } return true; })());
+
+  // — la regla del radio es absoluta: no puede depender del giro —
+  (function(){
+    let ok=true;
+    for(const t of [0,0.25,0.5,0.75,1]){
+      const r=radiusFrom(t);
+      if(Math.abs(sliderForRadius(r)-t) > 1e-12) ok=false;          // ida y vuelta exacto
+    }
+    chkB("la regla del radio va y vuelve sin perder nada", ok);
+  })();
+  chk("el extremo izquierdo de la regla roza el borde: 1 M + una millonésima",
+      radiusFrom(0), 1+D_MIN, 1e-15);
+  chk("el extremo derecho de la regla es 20 M", radiusFrom(1), 20, 1e-9);
+  // Este existe por un bug real: con la escala vieja (log sobre r) el planeta de
+  // Miller caía en el 0,00125% del recorrido — inalcanzable con el dedo, en un
+  // aparato cuyo punto es tocarlo. Puede fallar, y falla si alguien vuelve atrás.
+  (function(){
+    const t = sliderForRadius(radiusForFactor(MILLER, Math.pow(10,-13.886)));
+    chkB("el planeta de Miller cae donde se lo puede agarrar (entre 5% y 95%)",
+         t > 0.05 && t < 0.95);
+  })();
+
+  // — el radio de ruptura del planeta —
+  chkB("con más masa, el planeta se puede acercar más antes de partirse",
+       rbreak(1e8) < rbreak(1e6) && rbreak(1e6) < rbreak(10));
+  chkB("alrededor de un agujero negro estelar, un planeta se parte lejísimos",
+       rbreak(10) > 1000);
+  chkB("en Gargantúa, el radio de ruptura queda adentro de la órbita de Miller",
+       rbreak(1e8) < 3);
+
+  // — marea: escala como 1/M² a radio geométrico fijo —
+  (function(){
+    const tide=(Msun,r)=>{const GM=G*Msun*MSUN, rm=r*GM/(C*C); return 2*GM/(rm*rm*rm);};
+    chk("multiplicar la masa por 100 divide la marea por 10 000",
+        tide(1e6,2)/tide(1e8,2), 1e4, 1e4*1e-9);
+  })();
+
+  const tb=$("tests");
+  tb.innerHTML = T.map(t=>{
+    const g = t.bool ? t.got : (typeof t.got==="number" ? (Math.abs(t.got)>=1e5||(t.got!==0&&Math.abs(t.got)<1e-4) ? t.got.toExponential(3) : t.got.toFixed(6)) : t.got);
+    const e = t.bool ? t.exp : (typeof t.exp==="number" ? (Math.abs(t.exp)>=1e5||(t.exp!==0&&Math.abs(t.exp)<1e-4) ? t.exp.toExponential(3) : t.exp.toFixed(6)) : t.exp);
+    return `<tr><td>${t.name}</td><td>${g}</td><td>${e}</td><td class="${t.ok?'pass':'fail'}">${t.ok?'✓':'✗'}</td></tr>`;
+  }).join("");
+  const bad=T.filter(t=>!t.ok).length;
+  $("score").textContent = (T.length-bad)+" de "+T.length+" pasan"+(bad?" — ✗":"");
+  $("score").style.color = bad ? "var(--bad)" : "var(--ok)";
+})();
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquinitas con botoncitos — Aparatos</title>
+<style>
+  :root{ --bg:#faf9f7; --fg:#1a1a1a; --dim:#666; --line:#ddd; --accent:#8a3324; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#14150f; --fg:#e8e6e0; --dim:#999; --line:#2e2e2e; --accent:#d98b6a; }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:3.5rem 1.25rem 4rem;
+    background:var(--bg); color:var(--fg);
+    font:16px/1.6 ui-serif, Georgia, "Times New Roman", serif;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:42rem; margin:0 auto}
+  .back{display:inline-block; margin-bottom:2rem; font-size:.85rem; color:var(--dim); text-decoration:none}
+  .back:hover{color:var(--accent)}
+  h1{font-size:2.4rem; line-height:1.15; margin:0 0 .6rem; letter-spacing:-.01em}
+  .lead{font-size:1.05rem; margin:0 0 1rem}
+  .dim{color:var(--dim)}
+  blockquote{
+    margin:1.6rem 0; padding:0 0 0 1.1rem; border-left:2px solid var(--line);
+    font-style:italic; color:var(--dim);
+  }
+  .items{margin:3rem 0 0}
+  .item{border-top:1px solid var(--line); padding:1.6rem 0}
+  .item a{text-decoration:none; color:inherit; display:block}
+  .item a:hover h2, .item a:focus h2{color:var(--accent); text-decoration:underline}
+  .item h2{font-size:1.35rem; margin:0 0 .45rem; font-weight:600; line-height:1.2}
+  .item p{margin:0; color:var(--dim); font-size:.97rem}
+  .meta{
+    display:block; margin-top:.6rem; font-size:.75rem; letter-spacing:.05em;
+    color:var(--dim); font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .soon{border-top:1px solid var(--line); padding:1.6rem 0; color:var(--dim); font-size:.95rem; font-style:italic}
+  .how{
+    margin-top:3rem; padding-top:1.4rem; border-top:1px solid var(--line);
+    font-size:.9rem; color:var(--dim);
+  }
+  .how b{color:var(--fg)}
+  footer{margin-top:2.5rem; color:var(--dim); font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<a class="back" href="../">← todas las salas</a>
+
+<h1>Maquinitas con botoncitos</h1>
+<p class="lead">Cosas que hace unos años hacían científicos en un laboratorio y que, como ser humano común, no ibas a tocar en tu vida. Hoy tampoco las entendemos — pero se pueden calcular desde el celular.</p>
+<p class="dim">El acceso llegó antes que la comprensión. Podés mover el giro de un agujero negro con el pulgar sin entender una línea de la métrica de Kerr, y aun así entendés algo, porque lo moviste.</p>
+
+<blockquote>Una sala de museo llena de maquinitas con botoncitos.</blockquote>
+
+<div class="items">
+
+  <div class="item">
+    <a href="una-hora-siete-anos.html">
+      <h2>Una hora acá, siete años allá</h2>
+      <p>El reloj de un agujero negro que gira. En el planeta de Miller una hora son siete años en la Tierra, y eso no lo hace la gravedad sola: hay tres perillas y sólo una mueve el reloj. Las otras dos mueven el terreno — hasta dónde podés acercarte, y si sobrevivís al intento.</p>
+      <span class="meta">28 verificaciones · métrica de Kerr</span>
+    </a>
+  </div>
+
+  <div class="soon">Más maquinitas, a medida que aparezcan.</div>
+
+</div>
+
+<div class="how">
+  <p><b>Cómo se hicieron éstos.</b> A diferencia de los de la otra sala, éstos <b>se abrieron mientras se hacían</b>: la página se cargó, el banco de pruebas se corrió y los números se miraron en pantalla antes de publicar nada. Cada aparato trae su banco de pruebas adentro, al final, y se puede leer.</p>
+  <p>Lo que eso <i>no</i> certifica sigue siendo lo mismo de siempre: que un color, un margen o una flecha estén donde uno cree. Eso lo confirma una persona moviendo las perillas — y en este aparato <b>los últimos tres arreglos salieron de ahí y no del banco de pruebas</b>. Los números estaban bien y la cosa no se dejaba usar. Son dos verificaciones distintas y una no reemplaza a la otra.</p>
+</div>
+
+<footer>
+  <p>🦔🔪</p>
+</footer>
+
+</div>
+</body>
+</html>
