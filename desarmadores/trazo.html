@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trazo — el dibujo con su tiempo adentro</title>
+<style>
+  :root{
+    --bg:#faf9f7; --fg:#1a1a1a; --dim:#666; --line:#ddd; --panel:#fff;
+    --hot:#8a3324; --cool:#2c5f5d;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#14150f; --fg:#e8e6e0; --dim:#999; --line:#2e2e2e; --panel:#1b1c16;
+           --hot:#d98b6a; --cool:#7fb5b2; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0; padding:2rem 1.25rem 3rem; background:var(--bg); color:var(--fg);
+       font:16px/1.55 ui-serif, Georgia, serif; -webkit-text-size-adjust:100%}
+  .wrap{max-width:56rem; margin:0 auto}
+  h1{font-size:1.7rem; margin:0 0 .3rem; letter-spacing:-.01em}
+  .sub{color:var(--dim); font-size:.95rem; margin:0 0 1.5rem}
+  canvas{width:100%; height:460px; display:block; border-radius:8px;
+         background:var(--panel); border:1px solid var(--line);
+         touch-action:none; cursor:crosshair}
+  .row{display:flex; gap:.5rem; flex-wrap:wrap; margin:.9rem 0}
+  button{font:inherit; font-size:.9rem; padding:.45rem .9rem; border-radius:6px;
+         border:1px solid var(--line); background:var(--panel); color:var(--fg); cursor:pointer}
+  button:hover{border-color:var(--hot); color:var(--hot)}
+  button:disabled{opacity:.4; cursor:default; border-color:var(--line); color:var(--dim)}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); gap:.7rem;
+         margin:1rem 0; font-family:var(--mono); font-size:.8rem}
+  .stat{border:1px solid var(--line); border-radius:6px; padding:.55rem .7rem; background:var(--panel)}
+  .stat b{display:block; color:var(--dim); font-weight:400; font-size:.7rem;
+          letter-spacing:.04em; text-transform:uppercase; margin-bottom:.2rem}
+  .stat span{font-size:1.05rem; color:var(--hot)}
+  .hint{font-size:.82rem; color:var(--dim); margin:.4rem 0 0}
+  .aviso{border-left:2px solid var(--cool); padding:.1rem 0 .1rem .9rem; margin:1.4rem 0;
+         font-size:.9rem; color:var(--dim)}
+  .aviso b{color:var(--fg)}
+  textarea{width:100%; height:8rem; font-family:var(--mono); font-size:.72rem;
+           background:var(--panel); color:var(--dim); border:1px solid var(--line);
+           border-radius:6px; padding:.6rem; resize:vertical}
+  details{margin-top:1.4rem; font-size:.9rem}
+  summary{cursor:pointer; color:var(--dim)}
+  #tests{font-family:var(--mono); font-size:.75rem; margin-top:.7rem}
+  .ok{color:var(--cool)} .fail{color:var(--hot); font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Trazo</h1>
+<p class="sub">Un dibujo guarda cómo quedó. Esto guarda <b>cómo se hizo</b>: el orden, las pausas, la presión, dónde frenaste y por dónde volviste.</p>
+
+<canvas id="cv"></canvas>
+
+<div class="row">
+  <button id="bLimpiar">Limpiar</button>
+  <button id="bDeshacer">Deshacer trazo</button>
+  <button id="bRepro" disabled>Reproducir cómo se hizo</button>
+  <a href="decodificador.html" style="align-self:center;font-size:.85rem;color:var(--dim)">→ abrir el decodificador</a>
+  <button id="bGuardar" disabled>Guardar archivo…</button>
+  <button id="bBajar" disabled>Descargar</button>
+  <button id="bCopiar" disabled>Copiar datos</button>
+</div>
+<p id="estado" class="hint" style="min-height:1.2em; font-family:var(--mono); font-size:.78rem"></p>
+
+<div class="stats">
+  <div class="stat"><b>dispositivo</b><span id="sDev">—</span></div>
+  <div class="stat"><b>trazos</b><span id="sTrazos">0</span></div>
+  <div class="stat"><b>puntos</b><span id="sPuntos">0</span></div>
+  <div class="stat"><b>tiempo dibujando</b><span id="sTiempo">0 s</span></div>
+  <div class="stat"><b>pausas</b><span id="sPausas">0</span></div>
+  <div class="stat"><b>presión media</b><span id="sPres">—</span></div>
+</div>
+
+<p class="hint">Si <b>presión</b> dice “sin datos”, el dispositivo no la reporta (un mouse no la tiene). El resto se registra igual.</p>
+
+<div class="aviso">
+  <b>Qué tiene esto que una imagen no tiene.</b> Una imagen terminada es el acta: dice en qué quedó. Esto es la transcripción: el tiempo, el orden, las veces que levantaste el lápiz antes de decidir una línea. <b>Lo que no se puede leer en el resultado.</b>
+</div>
+
+<details>
+  <summary>Los datos, tal como se guardan</summary>
+  <p class="hint">Formato compacto: cada punto es <code>[x, y, presión, ms, tiltX, tiltY]</code>. Se guarda así para que un dibujo largo no pese de más.</p>
+  <textarea id="salida" readonly placeholder="Dibujá algo y aparece acá."></textarea>
+</details>
+
+<details>
+  <summary>Banco de pruebas</summary>
+  <p class="hint">Verifica la captura simulando trazos, sin que nadie dibuje. <b>Ojo con lo que esto NO puede verificar:</b> que se sienta bien dibujar, que el lápiz responda, que la presión se note. Eso lo confirma alguien con un lápiz en la mano — y esta semana aprendimos, cara, que un banco que escribe el mismo que escribió el código sólo encuentra lo que ya se le ocurrió buscar.</p>
+  <div id="tests"></div>
+</details>
+
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+let trazos = [];        // [{t0, puntos:[[x,y,p,ms,tx,ty],...]}]
+let actual = null;
+let t0Sesion = null;
+let device = "—";
+let hayPresion = false;
+
+/* ── lienzo ───────────────────────────────────────────── */
+function ajustar(){
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  redibujar();
+}
+function color(){
+  return getComputedStyle(document.documentElement).getPropertyValue("--fg").trim();
+}
+function segmento(a, b){
+  // el ancho sigue la presión: si no hay presión, ancho fijo
+  const p = hayPresion ? (a[2] + b[2]) / 2 : 0.5;
+  ctx.strokeStyle = color();
+  ctx.lineWidth = 0.6 + p * 5;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+}
+function redibujar(hasta){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const lista = hasta === undefined ? trazos : hasta;
+  for(const tr of lista)
+    for(let i=1;i<tr.puntos.length;i++) segmento(tr.puntos[i-1], tr.puntos[i]);
+}
+
+/* ── captura ──────────────────────────────────────────── */
+function pos(e){
+  const r = cv.getBoundingClientRect();
+  return [ +(e.clientX - r.left).toFixed(2), +(e.clientY - r.top).toFixed(2) ];
+}
+function punto(e){
+  const [x,y] = pos(e);
+  const ms = t0Sesion === null ? 0 : Math.round(performance.now() - t0Sesion);
+  const p = (typeof e.pressure === "number") ? +e.pressure.toFixed(3) : 0;
+  return [x, y, p, ms, e.tiltX|0, e.tiltY|0];
+}
+function empezar(e){
+  if(e.button !== undefined && e.button !== 0 && e.pointerType === "mouse") return;
+  // setPointerCapture tira NotFoundError si el navegador no reconoce ese
+  // pointerId, y sin este try se corta la función acá: no se crea el trazo,
+  // no se registra nada, y el dibujo se pierde sin un solo error visible.
+  // Capturar el puntero es una comodidad (seguir el trazo fuera del lienzo);
+  // que falle no puede costar el registro.
+  try { cv.setPointerCapture && cv.setPointerCapture(e.pointerId); } catch(_){}
+  if(t0Sesion === null) t0Sesion = performance.now();
+  device = e.pointerType || "—";
+  if(e.pointerType === "pen" && e.pressure > 0 && e.pressure !== 0.5) hayPresion = true;
+  actual = { t0: t0Sesion === null ? 0 : Math.round(performance.now() - t0Sesion),
+             puntos: [punto(e)] };
+  e.preventDefault();
+}
+function seguir(e){
+  if(!actual) return;
+  // Eventos coalescidos: la tableta manda más muestras de las que dispara,
+  // y getCoalescedEvents() las recupera todas. PERO puede devolver un array
+  // VACÍO (pasa con eventos sintéticos, y no hay garantía de que no pase con
+  // reales). Sin este respaldo se registra el pointerdown y ningún punto más:
+  // el trazo entero se pierde en silencio.
+  let evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  if(!evs.length) evs = [e];
+  for(const ev of evs){
+    const pt = punto(ev);
+    const prev = actual.puntos[actual.puntos.length-1];
+    if(prev && Math.abs(pt[0]-prev[0]) < .3 && Math.abs(pt[1]-prev[1]) < .3) continue;
+    if(pt[2] > 0 && pt[2] !== 0.5) hayPresion = true;
+    actual.puntos.push(pt);
+    segmento(prev, pt);
+  }
+  e.preventDefault();
+}
+function terminar(){
+  if(!actual) return;
+  if(actual.puntos.length > 1) trazos.push(actual);
+  actual = null;
+  refrescar();
+}
+
+cv.addEventListener("pointerdown", empezar);
+cv.addEventListener("pointermove", seguir);
+cv.addEventListener("pointerup", terminar);
+cv.addEventListener("pointercancel", terminar);
+cv.addEventListener("pointerleave", terminar);
+window.addEventListener("resize", ajustar);
+
+/* ── estadísticas y salida ────────────────────────────── */
+function stats(){
+  const nP = trazos.reduce((a,t)=>a+t.puntos.length,0);
+  let dur = 0, pausas = 0, sumaP = 0, conP = 0;
+  for(let i=0;i<trazos.length;i++){
+    const t = trazos[i];
+    dur += t.puntos[t.puntos.length-1][3] - t.puntos[0][3];
+    for(const p of t.puntos){ if(p[2]>0){ sumaP += p[2]; conP++; } }
+    if(i>0){
+      const hueco = t.puntos[0][3] - trazos[i-1].puntos[trazos[i-1].puntos.length-1][3];
+      if(hueco > 400) pausas++;
+    }
+  }
+  return { nTrazos:trazos.length, nPuntos:nP, durMs:dur, pausas,
+           presMedia: conP ? sumaP/conP : null };
+}
+function datos(){
+  const s = stats();
+  return {
+    meta:{
+      fecha: new Date().toISOString(),
+      dispositivo: device,
+      presion_reportada: hayPresion,
+      lienzo:[cv.clientWidth, cv.clientHeight],
+      trazos: s.nTrazos, puntos: s.nPuntos,
+      ms_dibujando: s.durMs, pausas: s.pausas,
+      presion_media: s.presMedia === null ? null : +s.presMedia.toFixed(3),
+      formato: "cada punto es [x, y, presion, ms, tiltX, tiltY]"
+    },
+    trazos: trazos.map(t=>({ inicio_ms:t.t0, puntos:t.puntos }))
+  };
+}
+function refrescar(){
+  const s = stats();
+  $("sDev").textContent = device;
+  $("sTrazos").textContent = s.nTrazos;
+  $("sPuntos").textContent = s.nPuntos;
+  $("sTiempo").textContent = (s.durMs/1000).toFixed(1) + " s";
+  $("sPausas").textContent = s.pausas;
+  $("sPres").textContent = s.presMedia === null ? "sin datos" : s.presMedia.toFixed(2);
+  const hay = trazos.length > 0;
+  for(const b of ["bRepro","bGuardar","bBajar","bCopiar"]) $(b).disabled = !hay;
+  $("salida").value = hay ? JSON.stringify(datos()) : "";
+}
+
+/* ── botones ──────────────────────────────────────────── */
+$("bLimpiar").onclick = ()=>{ trazos=[]; actual=null; t0Sesion=null; hayPresion=false;
+                              device="—"; redibujar(); refrescar(); };
+$("bDeshacer").onclick = ()=>{ trazos.pop(); redibujar(); refrescar(); };
+
+$("bRepro").onclick = async ()=>{
+  const b = $("bRepro"); b.disabled = true; b.textContent = "reproduciendo…";
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const t00 = trazos[0].puntos[0][3];
+  const inicio = performance.now();
+  for(const tr of trazos){
+    for(let i=1;i<tr.puntos.length;i++){
+      const objetivo = (tr.puntos[i][3] - t00);
+      const espera = objetivo - (performance.now() - inicio);
+      if(espera > 4) await new Promise(r=>setTimeout(r, espera));
+      segmento(tr.puntos[i-1], tr.puntos[i]);
+    }
+  }
+  b.textContent = "Reproducir cómo se hizo"; b.disabled = false;
+};
+
+function nombre(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,"0");
+  return `trazo-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`;
+}
+/* Nada de esto puede fallar callado. Un botón que no avisa produce un archivo
+   de 0 KB que parece haber funcionado — pasó la primera vez que se usó. */
+function estado(txt, mal){
+  const e = $("estado");
+  e.textContent = txt;
+  e.style.color = mal ? "var(--hot)" : "var(--cool)";
+}
+
+$("bGuardar").onclick = async ()=>{
+  const txt = JSON.stringify(datos());
+  if(txt.length < 80){ estado("No hay nada que guardar todavía.", true); return; }
+  if(!window.showSaveFilePicker){
+    estado("Este navegador no deja elegir carpeta. Usá Descargar y movelo a mano.", true); return; }
+  try{
+    const fh = await window.showSaveFilePicker({
+      suggestedName: nombre(),
+      types:[{description:"Trazo", accept:{"application/json":[".json"]}}]
+    });
+    const w = await fh.createWritable();
+    await w.write(new Blob([txt], {type:"application/json"}));   // Blob: más robusto que string
+    await w.close();
+    // verificamos leyendo de vuelta: que exista no es que tenga algo adentro
+    let escrito = null;
+    try { escrito = (await (await fh.getFile()).text()).length; } catch(_){}
+    if(escrito === null) estado("Guardado (no se pudo releer para verificar).");
+    else if(escrito < 80) estado("¡Salió vacío! Usá Descargar en vez de esto.", true);
+    else estado("Guardado y verificado ✓ — " + (escrito/1024).toFixed(1) + " KB en el archivo.");
+  }catch(err){
+    if(err.name === "AbortError") estado("Cancelado.");
+    else estado("No se pudo guardar (" + err.name + "). Probá Descargar.", true);
+  }
+};
+
+$("bBajar").onclick = ()=>{
+  try{
+    const txt = JSON.stringify(datos());
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([txt], {type:"application/json"}));
+    a.download = nombre(); document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+    estado("Descargado ✓ — " + (txt.length/1024).toFixed(1) + " KB. Está en tu carpeta de descargas.");
+  }catch(err){ estado("No se pudo descargar: " + err.name, true); }
+};
+
+$("bCopiar").onclick = async ()=>{
+  const txt = JSON.stringify(datos());
+  // navigator.clipboard no siempre existe abriendo el archivo con doble clic
+  // (file://). Si no está o falla, se copia con el método viejo, que sí anda.
+  try{
+    if(!navigator.clipboard) throw new Error("sin clipboard API");
+    await navigator.clipboard.writeText(txt);
+    estado("Copiado ✓ — " + (txt.length/1024).toFixed(1) + " KB en el portapapeles.");
+    return;
+  }catch(_){ /* seguimos al respaldo */ }
+  try{
+    const ta = $("salida");
+    ta.removeAttribute("readonly");
+    ta.value = txt; ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length);
+    const ok = document.execCommand("copy");
+    ta.setAttribute("readonly","");
+    estado(ok ? "Copiado ✓ (método de respaldo)."
+              : "No se pudo copiar solo. Abrí «Los datos» acá abajo y copiá a mano.", !ok);
+  }catch(err){
+    estado("No se pudo copiar. Abrí «Los datos» acá abajo y copiá a mano.", true);
+  }
+};
+
+/* ── banco de pruebas ─────────────────────────────────────
+   Simula trazos y verifica la captura. No puede verificar
+   que dibujar se sienta bien: eso lo dice una mano.        */
+(function tests(){
+  const out = [];
+  const chk = (nombre, ok, extra="") =>
+    out.push(`<div class="${ok?'ok':'fail'}">${ok?'✓':'✗'} ${nombre}${extra?' — '+extra:''}</div>`);
+
+  const guardar = trazos; // no pisar lo que haya
+
+  // 1. un punto solo no cuenta como trazo
+  trazos = [];
+  trazos.push({t0:0, puntos:[[0,0,.5,0,0,0]]});
+  const antes = trazos.length;
+  trazos = trazos.filter(t=>t.puntos.length>1);
+  chk("un toque sin movimiento no genera trazo", antes===1 && trazos.length===0);
+
+  // 2. estadísticas sobre un trazo conocido
+  trazos = [{t0:0, puntos:[[0,0,.4,0,0,0],[10,0,.6,100,0,0],[20,0,.8,200,0,0]]}];
+  let s = stats();
+  chk("cuenta los puntos", s.nPuntos===3, s.nPuntos+" de 3");
+  chk("mide la duración por diferencia de tiempos", s.durMs===200, s.durMs+" ms de 200");
+  chk("promedia la presión", Math.abs(s.presMedia-0.6)<1e-9, s.presMedia+" de 0.6");
+
+  // 3. pausas: sólo cuenta el hueco ENTRE trazos, no dentro
+  trazos = [
+    {t0:0,    puntos:[[0,0,.5,0,0,0],[5,5,.5,50,0,0]]},
+    {t0:100,  puntos:[[9,9,.5,100,0,0],[9,9,.5,150,0,0]]},   // hueco 50 ms → no es pausa
+    {t0:3000, puntos:[[1,1,.5,3000,0,0],[2,2,.5,3050,0,0]]}  // hueco 2850 ms → sí
+  ];
+  s = stats();
+  chk("una pausa larga cuenta y una corta no", s.pausas===1, s.pausas+" de 1");
+
+  // 4. el punto no pierde información
+  const p = [12.5, 30.25, 0.742, 1234, -7, 3];
+  const round = JSON.parse(JSON.stringify({trazos:[{inicio_ms:0,puntos:[p]}]}));
+  chk("el formato conserva presión, tiempo e inclinación",
+      JSON.stringify(round.trazos[0].puntos[0])===JSON.stringify(p));
+
+  // 5. sin presión reportada, no se inventa un promedio
+  trazos = [{t0:0, puntos:[[0,0,0,0,0,0],[1,1,0,10,0,0]]}];
+  chk("sin datos de presión devuelve null, no cero", stats().presMedia===null);
+
+  // 6. este test PUEDE fallar y protege el formato compacto
+  trazos = [{t0:0, puntos:Array.from({length:500},(_,i)=>[i,i,.5,i*4,0,0])}];
+  const bytes = JSON.stringify(datos()).length;
+  chk("500 puntos entran en menos de 20 KB", bytes < 20000, Math.round(bytes/1024)+" KB");
+
+  /* 7. EL CIRCUITO COMPLETO, no las piezas sueltas.
+     Existe por un bug real: los seis tests de arriba estaban en verde
+     mientras la captura no registraba ni un punto — getCoalescedEvents()
+     devolvía un array vacío y el `for` no iteraba nunca. Se guardaba el
+     pointerdown y nada más. Ninguna prueba de funciones lo veía, porque
+     el problema no estaba en las funciones. */
+  (function(){
+    trazos = []; actual = null; t0Sesion = null;
+    const r = cv.getBoundingClientRect();
+    const lanzar = (tipo,x,y,p) => cv.dispatchEvent(new PointerEvent(tipo,{
+      pointerId:99, pointerType:'pen', pressure:p, isPrimary:true,
+      bubbles:true, cancelable:true, button:0,
+      clientX:r.left+x, clientY:r.top+y, tiltX:-5, tiltY:12 }));
+    lanzar('pointerdown', 20, 20, .3);
+    for(let i=1;i<=10;i++) lanzar('pointermove', 20+i*5, 20+i*2, .3+i*.05);
+    lanzar('pointerup', 70, 40, .8);
+    const ok = trazos.length === 1 && trazos[0].puntos.length > 1;
+    chk("un trazo simulado de punta a punta queda registrado", ok,
+        ok ? trazos[0].puntos.length+" puntos" : "se perdió el trazo");
+    // y que los datos del lápiz sobrevivan el viaje
+    const p = ok ? trazos[0].puntos[1] : null;
+    chk("la presión y la inclinación llegan al registro",
+        !!p && p[2] > 0 && p[5] === 12, p ? "presión "+p[2]+", tiltY "+p[5] : "sin punto");
+  })();
+
+  trazos = guardar; actual = null; t0Sesion = null;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  document.getElementById("tests").innerHTML = out.join("");
+})();
+
+ajustar(); refrescar();
+</script>
+</body>
+</html>

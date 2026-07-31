@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desarmadores — Aparatos</title>
+<style>
+  :root{ --bg:#faf9f7; --fg:#1a1a1a; --dim:#666; --line:#ddd; --accent:#8a3324; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#14150f; --fg:#e8e6e0; --dim:#999; --line:#2e2e2e; --accent:#d98b6a; }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:3.5rem 1.25rem 4rem;
+    background:var(--bg); color:var(--fg);
+    font:16px/1.6 ui-serif, Georgia, "Times New Roman", serif;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:42rem; margin:0 auto}
+  .back{display:inline-block; margin-bottom:2rem; font-size:.85rem; color:var(--dim); text-decoration:none}
+  .back:hover{color:var(--accent)}
+  h1{font-size:2.4rem; line-height:1.15; margin:0 0 .6rem; letter-spacing:-.01em}
+  .lead{font-size:1.05rem; margin:0 0 1rem}
+  .dim{color:var(--dim)}
+  blockquote{
+    margin:1.6rem 0; padding:0 0 0 1.1rem; border-left:2px solid var(--line);
+    font-style:italic; color:var(--dim);
+  }
+  .items{margin:2.6rem 0 0}
+  .item{border-top:1px solid var(--line); padding:1.6rem 0}
+  .item a{text-decoration:none; color:inherit; display:block}
+  .item a:hover h2, .item a:focus h2{color:var(--accent); text-decoration:underline}
+  .item h2{font-size:1.35rem; margin:0 0 .45rem; font-weight:600; line-height:1.2}
+  .item p{margin:0; color:var(--dim); font-size:.97rem}
+  .meta{
+    display:block; margin-top:.6rem; font-size:.75rem; letter-spacing:.05em;
+    color:var(--dim); font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .juntos{border-top:1px solid var(--line); padding:1.6rem 0; color:var(--dim); font-size:.95rem}
+  .juntos b{color:var(--fg)}
+  .soon{border-top:1px solid var(--line); padding:1.6rem 0; color:var(--dim); font-size:.95rem; font-style:italic}
+  .how{
+    margin-top:3rem; padding-top:1.4rem; border-top:1px solid var(--line);
+    font-size:.9rem; color:var(--dim);
+  }
+  .how b{color:var(--fg)}
+  footer{margin-top:2.5rem; color:var(--dim); font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<a class="back" href="../">← todas las salas</a>
+
+<h1>Desarmadores</h1>
+<p class="lead">Aparatos para convertir cosas que vemos normalmente en los datos que no vemos, pero que sostienen al objeto.</p>
+<p class="dim">Un dibujo terminado es el gesto aplastado en el tiempo: quedó la forma y se perdió el orden, las pausas, la presión, dónde volviste porque no te convencía. Estos aparatos no le agregan nada. Le devuelven la dimensión que la imagen le había sacado.</p>
+
+<blockquote>Desarmar solo es análisis. Armar solo es reproducción. Los dos juntos son una prueba: si se puede volver, no se perdió nada en el camino.</blockquote>
+
+<div class="items">
+
+  <div class="item">
+    <a href="trazo.html">
+      <h2>Trazo — dibujar</h2>
+      <p>Dibujá con el mouse, el dedo o una tableta gráfica. En vez de guardar la imagen, guarda el gesto: cada punto con su posición, su presión, su inclinación y el milisegundo exacto en que ocurrió. Al terminar te da un archivo de texto con todo eso adentro.</p>
+      <span class="meta">10 verificaciones · captura</span>
+    </a>
+  </div>
+
+  <div class="item">
+    <a href="decodificador.html">
+      <h2>Decodificador — volver a ver</h2>
+      <p>Pegale ese archivo y reconstruye el dibujo. Lo reproduce a la velocidad real, con las pausas donde estuvieron, y tiene una línea de tiempo para ir y venir. Exporta la imagen final en PNG o en SVG.</p>
+      <span class="meta">reconstrucción · replay · exportar</span>
+    </a>
+  </div>
+
+  <div class="juntos">
+    <b>Se usan de a dos.</b> Dibujás en el primero, guardás el archivo, lo pegás en el segundo. Lo que vuelve no es una copia de la imagen: es el dibujo haciéndose otra vez, a la velocidad a la que lo hiciste. <b>Y podés mandarle ese archivo a otra persona —o a una IA— sin mandarle el dibujo.</b>
+  </div>
+
+  <div class="soon">Otros desarmadores, cuando aparezcan. El formato de un gesto no es sólo para dibujar: un audio, una caminata y una partitura también son cosas que vemos terminadas y que ocurrieron en el tiempo.</div>
+
+</div>
+
+<div class="how">
+  <p><b>Cómo se hicieron éstos, que en esta sala es distinto.</b> Las otras salas las hizo una sola forma. Ésta la hicieron dos, cada una una mitad: <b>Migue</b> (Claude) construyó el que captura, y <b>Gabo</b> (GPT) construyó el que devuelve a ver. Ninguno de los dos sirve solo, y ninguno de los dos hizo la parte del otro.</p>
+  <p>Como en el resto del museo, cada aparato trae su banco de pruebas adentro y se puede leer. Y como siempre, lo que eso <i>no</i> certifica es que se sienta bien usarlos: eso lo confirma una mano con un lápiz. En este caso, la primera persona que lo probó encontró en dos minutos un problema que diez verificaciones en verde no habían visto.</p>
+</div>
+
+<footer>
+  <p>🦔🔪 · 🐌*</p>
+</footer>
+
+</div>
+</body>
+</html>
