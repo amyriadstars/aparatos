@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cianómetro</title>
+<style>
+  :root{ --tinta:#1a1a1a; --papel:#f4f1ea; --linea:#c9c2b4; --tenue:#6b6459; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--papel);color:var(--tinta);
+       font:16px/1.55 Georgia,'Times New Roman',serif;padding:2rem 1.2rem 4rem}
+  .caja{max-width:880px;margin:0 auto}
+  h1{font-size:1.9rem;margin:0 0 .2rem;letter-spacing:.02em}
+  .sub{color:var(--tenue);font-style:italic;margin:0 0 1.6rem}
+  h2{font-size:1.05rem;text-transform:uppercase;letter-spacing:.12em;
+     border-bottom:1px solid var(--linea);padding-bottom:.4rem;margin:2.4rem 0 1rem}
+  p{margin:.7rem 0}
+  .chico{font-size:.86rem;color:var(--tenue)}
+
+  .llave{display:flex;gap:0;margin:1.2rem 0 .6rem;border:1px solid var(--tinta);width:fit-content}
+  .llave button{font:inherit;font-size:.9rem;padding:.45rem 1.1rem;border:0;
+                background:transparent;cursor:pointer;color:var(--tinta)}
+  .llave button.on{background:var(--tinta);color:var(--papel)}
+
+  .rueda{display:grid;grid-template-columns:repeat(auto-fit,minmax(40px,1fr));gap:3px;margin:.8rem 0}
+  .tono{aspect-ratio:1;border-radius:2px;position:relative;cursor:pointer;
+        border:2px solid transparent;transition:transform .08s,background .25s}
+  .tono:hover{transform:scale(1.12);z-index:2}
+  .tono.elegido{border-color:var(--tinta);transform:scale(1.12);z-index:3}
+  .tono span{position:absolute;bottom:1px;right:3px;font-size:9px;
+             font-family:ui-monospace,monospace;opacity:.7}
+
+  .banco{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-top:1rem}
+  @media(max-width:640px){.banco{grid-template-columns:1fr}}
+  .panel{border:1px solid var(--linea);background:#fff;padding:1rem}
+  .muestra{height:170px;border:1px solid var(--linea);display:flex;align-items:center;
+           justify-content:center;color:var(--tenue);font-size:.85rem;text-align:center;
+           padding:.5rem;background:#fafafa;overflow:hidden;cursor:crosshair}
+  .muestra canvas{max-width:100%;max-height:100%;display:block}
+  input[type=file]{font:inherit;font-size:.85rem;margin-top:.7rem;width:100%}
+  .lectura{font-family:ui-monospace,monospace;font-size:2.4rem;line-height:1;margin:.5rem 0 0}
+  .lectura small{font-size:.9rem;color:var(--tenue);font-family:Georgia,serif}
+  .parche{display:inline-block;width:22px;height:22px;vertical-align:-5px;
+          border:1px solid var(--linea);margin-left:.5rem;border-radius:2px}
+
+  .veredicto{margin-top:1.4rem;padding:1rem;border-left:3px solid var(--tinta);
+             background:#fff;display:none}
+  .veredicto.on{display:block}
+  button.acc{font:inherit;padding:.45rem .9rem;border:1px solid var(--tinta);
+             background:transparent;cursor:pointer;margin:.7rem .4rem 0 0}
+  button.acc:hover{background:var(--tinta);color:var(--papel)}
+  .nota{border-left:3px solid var(--linea);padding-left:1rem;color:var(--tenue);
+        font-size:.9rem;margin:1.4rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:.8rem}
+  th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--linea)}
+  th{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tenue)}
+  td.n{font-family:ui-monospace,monospace}
+  .vacio{color:var(--tenue);font-style:italic;font-size:.9rem}
+  textarea{width:100%;height:120px;font:12px/1.4 ui-monospace,monospace;
+           border:1px solid var(--linea);padding:.6rem;margin-top:.6rem;display:none}
+</style>
+</head>
+<body>
+<div class="caja">
+
+<h1>Cianómetro</h1>
+<p class="sub">Horace-Bénédict de Saussure, 1789. Cincuenta y tres azules y un ojo.</p>
+
+<p>Saussure quería medir el azul del cielo y no tenía con qué. Tiñó cincuenta y tres papelitos con azul de Prusia, del blanco al negro, los pegó en una rueda de cartón, y la sostuvo contra el cielo hasta encontrar el que coincidía. <strong>Ese número era la medición.</strong> Humboldt se lo llevó a los Andes y anotó un 46 sobre el Chimborazo — el azul más profundo que registró nadie. Con esa serie de números se descubrió que el azul depende de la humedad y de las partículas en suspensión, no de la altura sola.</p>
+
+<div class="nota">
+<strong>No hay sensor.</strong> El instrumento son cincuenta y tres papeles <em>más un ojo</em>. El que mide está adentro de la máquina, y el aparato no lo esconde: lo declara. Aun así produjo números que se publicaron como ciencia durante ochenta años.
+</div>
+
+<h2>La rueda</h2>
+
+<div class="llave">
+  <button id="bPig" class="on">pigmento · 1789</button>
+  <button id="bCie">cielo</button>
+</div>
+<p class="chico" id="expl"></p>
+<div class="rueda" id="rueda"></div>
+
+<h2>El banco de pruebas</h2>
+<div class="banco">
+  <div class="panel">
+    <strong>1. A ojo</strong>
+    <p class="chico">Mirá el cielo por la ventana y elegí arriba.</p>
+    <div class="lectura" id="ojo">—<small> tu lectura</small></div>
+  </div>
+  <div class="panel">
+    <strong>2. Por cálculo</strong>
+    <p class="chico">Subí una foto y hacé clic en un punto del cielo.</p>
+    <div class="muestra" id="muestra">sin foto</div>
+    <input type="file" id="archivo" accept="image/*">
+    <div class="lectura" id="calc">—<small> el más cercano</small><span class="parche" id="parche" style="display:none"></span></div>
+  </div>
+</div>
+
+<div class="veredicto" id="veredicto"></div>
+
+<h2>La bitácora</h2>
+<p class="chico">La rueda sola te dice el azul de hoy. <strong>El instrumento de Saussure era la rueda más la serie:</strong> anotó números todos los días durante años, y recién ahí apareció que el azul no dependía de la altura. Guardá los tuyos.</p>
+<button class="acc" id="guardar">Anotar esta lectura</button>
+<button class="acc" id="exportar">Exportar</button>
+<button class="acc" id="borrar">Borrar todo</button>
+<textarea id="salida" readonly></textarea>
+<div id="tabla"></div>
+
+<h2>La letra chica</h2>
+<p class="chico"><strong>Ninguna de las dos escalas es la de Saussure.</strong> Los papeles originales eran pigmento sobre cartón, se descoloraron, y las reproducciones que circulan no coinciden entre sí. La escala <em>pigmento</em> está interpolada entre blanco, azul de Prusia y negro: respeta la forma de la serie, no sus valores. La escala <em>cielo</em> es directamente una invención de esta casa, calibrada a ojo contra cielos reales. Si alguna vez aparece una tabla colorimétrica confiable del original, se reemplaza la primera.</p>
+<p class="chico"><strong>Y el cálculo tampoco es la verdad.</strong> Compara en un espacio perceptual contra la escala que esté activa. Si la escala está corrida, el número está corrido igual — sólo que sin dudar. Es el mismo ojo, con menos vergüenza.</p>
+<p class="chico"><strong>Ojo con la pantalla.</strong> Estás comparando luz emitida contra luz dispersada por el aire. El brillo, el modo nocturno y la calibración del monitor mueven el número tanto como el clima.</p>
+
+</div>
+
+<script>
+// ── las dos escalas ──────────────────────────────────────────
+const N = 53;
+// Interpola una rampa definida por puntos de control [posición, [r,g,b]].
+function rampa(puntos){
+  const out=[];
+  for(let i=0;i<=N;i++){
+    let a=puntos[0], b=puntos[puntos.length-1];
+    for(let k=0;k<puntos.length-1;k++){
+      if(i>=puntos[k][0] && i<=puntos[k+1][0]){ a=puntos[k]; b=puntos[k+1]; break; }
+    }
+    const t = b[0]===a[0] ? 0 : (i-a[0])/(b[0]-a[0]);
+    out.push(a[1].map((v,j)=> Math.round(v+(b[1][j]-v)*t)));
+  }
+  return out;
+}
+
+// 1789: blanco → azul de Prusia (#003153) → negro. Opaco a propósito:
+// ningún pigmento sobre papel alcanza la luminosidad del cielo, y ése
+// era el límite conocido del instrumento.
+const PIGMENTO = rampa([
+  [0,[255,255,255]], [40,[0,49,83]], [53,[10,10,14]]
+]);
+
+// Cielo: calibrada contra cielos reales. Mucho más luminosa y saturada.
+// El 46 es el Chimborazo de Humboldt; de ahí para arriba ya es noche.
+const CIELO = rampa([
+  [0,[255,255,255]], [6,[220,233,247]], [12,[184,212,239]],
+  [18,[147,189,230]], [24,[110,166,220]], [30,[74,143,210]],
+  [36,[47,116,189]],  [42,[30,83,153]],   [46,[22,56,110]],
+  [53,[7,13,26]]
+]);
+
+let ESCALA = PIGMENTO, modo = 'pigmento';
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+const TEXTOS = {
+  pigmento: 'Los papeles que Saussure podía fabricar en 1789. <strong>Nunca igualaron al cielo</strong> — se veían apagados al lado, y él lo sabía. El instrumento funcionaba igual porque no comparaba colores: comparaba <em>posiciones en una serie</em>.',
+  cielo: 'La misma escala corrida hacia lo que el ojo ve de verdad al mirar arriba. <strong>Sirve para encontrar tu tono; no es histórica.</strong> Si un número cambia mucho entre las dos escalas, esa diferencia es la distancia entre el pigmento y la luz.'
+};
+
+// ── distancia perceptual (CIE76 sobre Lab) ───────────────────
+function aLab([r,g,b]){
+  const s=[r,g,b].map(v=>{v/=255; return v>0.04045?((v+0.055)/1.055)**2.4:v/12.92;});
+  const X=(s[0]*0.4124+s[1]*0.3576+s[2]*0.1805)/0.95047,
+        Y=(s[0]*0.2126+s[1]*0.7152+s[2]*0.0722),
+        Z=(s[0]*0.0193+s[1]*0.1192+s[2]*0.9505)/1.08883;
+  const f=t=> t>0.008856? Math.cbrt(t) : (7.787*t)+16/116;
+  return [116*f(Y)-16, 500*(f(X)-f(Y)), 200*(f(Y)-f(Z))];
+}
+const dist=(c1,c2)=>{const a=aLab(c1),b=aLab(c2);
+  return Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);};
+function masCercano(c){
+  let mejor=0,min=Infinity;
+  ESCALA.forEach((e,i)=>{const d=dist(c,e); if(d<min){min=d;mejor=i;}});
+  return mejor;
+}
+
+// ── estado ───────────────────────────────────────────────────
+let elegidoOjo=null, elegidoCalc=null, colorPunto=null;
+
+// ── la rueda ─────────────────────────────────────────────────
+const rueda=document.getElementById('rueda');
+function pintarRueda(){
+  rueda.innerHTML='';
+  ESCALA.forEach((c,i)=>{
+    const d=document.createElement('div');
+    d.className='tono'+(i===elegidoOjo?' elegido':'');
+    d.style.background=css(c);
+    const claro = (c[0]*0.299+c[1]*0.587+c[2]*0.114) > 140;
+    d.innerHTML=`<span style="color:${claro?'#333':'#fff'}">${i}</span>`;
+    d.title=`tono ${i}`;
+    d.onclick=()=>{
+      elegidoOjo=i; pintarRueda();
+      document.getElementById('ojo').innerHTML=`${i}<small> tu lectura</small>`;
+      veredicto();
+    };
+    rueda.appendChild(d);
+  });
+}
+function setModo(m){
+  modo=m; ESCALA = m==='pigmento'?PIGMENTO:CIELO;
+  document.getElementById('bPig').classList.toggle('on',m==='pigmento');
+  document.getElementById('bCie').classList.toggle('on',m==='cielo');
+  document.getElementById('expl').innerHTML=TEXTOS[m];
+  pintarRueda();
+  if(colorPunto){                        // recalcular con la escala nueva
+    elegidoCalc=masCercano(colorPunto);
+    document.getElementById('calc').innerHTML=
+      `${elegidoCalc}<small> el más cercano</small><span class="parche" style="background:${css(colorPunto)}"></span>`;
+  }
+  veredicto();
+}
+document.getElementById('bPig').onclick=()=>setModo('pigmento');
+document.getElementById('bCie').onclick=()=>setModo('cielo');
+
+// ── la foto ──────────────────────────────────────────────────
+const muestra=document.getElementById('muestra');
+document.getElementById('archivo').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const img=new Image();
+  img.onload=()=>{
+    const cv=document.createElement('canvas');
+    const esc=Math.min(700/img.width,700/img.height,1);
+    cv.width=img.width*esc; cv.height=img.height*esc;
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+    muestra.innerHTML=''; muestra.appendChild(cv);
+    cv.onclick=ev=>{
+      const r=cv.getBoundingClientRect();
+      const x=Math.floor((ev.clientX-r.left)*(cv.width/r.width));
+      const y=Math.floor((ev.clientY-r.top)*(cv.height/r.height));
+      // promedio de 5x5 para que un píxel raro no decida la lectura
+      const d=cv.getContext('2d').getImageData(Math.max(0,x-2),Math.max(0,y-2),5,5).data;
+      let R=0,G=0,B=0,n=0;
+      for(let i=0;i<d.length;i+=4){R+=d[i];G+=d[i+1];B+=d[i+2];n++;}
+      colorPunto=[Math.round(R/n),Math.round(G/n),Math.round(B/n)];
+      elegidoCalc=masCercano(colorPunto);
+      document.getElementById('calc').innerHTML=
+        `${elegidoCalc}<small> el más cercano</small><span class="parche" style="background:${css(colorPunto)}"></span>`;
+      veredicto();
+    };
+  };
+  img.src=URL.createObjectURL(f);
+};
+
+// ── el veredicto ─────────────────────────────────────────────
+function veredicto(){
+  const v=document.getElementById('veredicto');
+  if(elegidoOjo===null||elegidoCalc===null){ v.classList.remove('on'); return; }
+  const d=Math.abs(elegidoOjo-elegidoCalc);
+  let txt;
+  if(d===0) txt='<strong>Coinciden.</strong> Lo cual no prueba que tengas buen ojo: prueba que tu ojo y esta escala se equivocan para el mismo lado.';
+  else if(d<=2) txt=`<strong>Diferencia de ${d}.</strong> Dentro de lo que Saussure daba por repetible entre dos observadores distintos.`;
+  else if(d<=6) txt=`<strong>Diferencia de ${d}.</strong> Acá el instrumento empieza a hablar de vos y no del cielo. Pudo ser el brillo de la pantalla, la foto, o que el azul que buscabas no estaba en el punto que clickeaste.`;
+  else txt=`<strong>Diferencia de ${d}.</strong> Grande. Mirá qué punto de la foto elegiste: el cielo no tiene un solo azul, y esa es la mitad del hallazgo de Humboldt.`;
+  const otra = modo==='pigmento'?'cielo':'pigmento';
+  txt += `<p class="chico" style="margin-top:.8rem">Estás en la escala <strong>${modo}</strong>. Probá la de <strong>${otra}</strong> con el mismo punto: si el número salta, esa distancia es la que separa al pigmento de la luz — y es la razón por la que el instrumento de 1789 medía comparaciones y no colores.</p>`;
+  v.innerHTML=txt; v.classList.add('on');
+}
+
+// ── la bitácora ──────────────────────────────────────────────
+const CLAVE='cianometro.bitacora';
+const leer=()=>{try{return JSON.parse(localStorage.getItem(CLAVE))||[]}catch(e){return[]}};
+const escribir=b=>localStorage.setItem(CLAVE,JSON.stringify(b));
+
+function pintarTabla(){
+  const b=leer(), c=document.getElementById('tabla');
+  if(!b.length){ c.innerHTML='<p class="vacio">Todavía no anotaste ninguna.</p>'; return; }
+  c.innerHTML='<table><tr><th>Fecha</th><th>Escala</th><th>A ojo</th><th>Cálculo</th><th>Dif.</th></tr>'+
+    b.slice().reverse().map(r=>
+      `<tr><td class="n">${r.fecha}</td><td>${r.escala}</td><td class="n">${r.ojo??'—'}</td>`+
+      `<td class="n">${r.calc??'—'}</td><td class="n">${(r.ojo!=null&&r.calc!=null)?Math.abs(r.ojo-r.calc):'—'}</td></tr>`
+    ).join('')+'</table>';
+}
+document.getElementById('guardar').onclick=()=>{
+  if(elegidoOjo===null && elegidoCalc===null){ alert('Elegí un tono o clickeá una foto primero.'); return; }
+  const f=new Date(), p=n=>String(n).padStart(2,'0');
+  const b=leer();
+  b.push({fecha:`${f.getFullYear()}-${p(f.getMonth()+1)}-${p(f.getDate())} ${p(f.getHours())}:${p(f.getMinutes())}`,
+          escala:modo, ojo:elegidoOjo, calc:elegidoCalc});
+  escribir(b); pintarTabla();
+};
+document.getElementById('exportar').onclick=()=>{
+  const t=document.getElementById('salida');
+  const b=leer();
+  t.value = b.length ? 'fecha\tescala\tojo\tcalculo\n'+
+    b.map(r=>`${r.fecha}\t${r.escala}\t${r.ojo??''}\t${r.calc??''}`).join('\n')
+    : '(vacía)';
+  t.style.display='block'; t.select();
+};
+document.getElementById('borrar').onclick=()=>{
+  if(confirm('¿Borrar todas las lecturas anotadas?')){ localStorage.removeItem(CLAVE); pintarTabla();
+    document.getElementById('salida').style.display='none'; }
+};
+
+setModo('pigmento');
+pintarTabla();
+</script>
+</body>
+</html>

@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adentro de una foto no hay una foto — el desarmador de imágenes</title>
+<style>
+  :root{
+    --bg:#0d0e14; --panel:#15161f; --fg:#e9e7e2; --dim:#8d8b96; --line:#272836;
+    --hot:#e0824a; --cool:#6aa9d9; --ok:#6cc08a; --bad:#d9604f;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f7f6f3; --panel:#fff; --fg:#1b1b20; --dim:#6a6a75; --line:#e2e1dc;
+           --hot:#b5541f; --cool:#2d6d9e; --ok:#2f7d52; --bad:#b03a2b; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:2.5rem 1.1rem 4rem;background:var(--bg);color:var(--fg);
+       font:16px/1.6 ui-serif,Georgia,serif;-webkit-text-size-adjust:100%}
+  .wrap{max-width:52rem;margin:0 auto}
+  h1{font-size:2.1rem;line-height:1.15;margin:0 0 .3rem;letter-spacing:-.01em}
+  .kicker{font-size:.75rem;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);margin:0 0 1rem}
+  .sub{color:var(--dim);margin:0 0 2rem;font-size:1.02rem}
+  h2{font-size:1.15rem;margin:2.8rem 0 .8rem;font-weight:600}
+  h3{font-size:.95rem;margin:1.6rem 0 .5rem;font-weight:600;color:var(--dim);
+     letter-spacing:.04em;text-transform:uppercase}
+  p{margin:0 0 1rem}
+  .dim{color:var(--dim)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1.1rem 1.1rem 1.2rem;margin:1.2rem 0}
+  .mono{font-family:var(--mono);font-size:.86rem}
+  button{font:inherit;font-size:.9rem;background:var(--panel);color:var(--fg);
+         border:1px solid var(--line);border-radius:7px;padding:.42rem .8rem;cursor:pointer}
+  button:hover{border-color:var(--dim)}
+  button.on{border-color:var(--hot);color:var(--hot)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  input[type=range]{width:100%;accent-color:var(--hot)}
+  canvas{display:block;image-rendering:pixelated}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+  .imgs{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center}
+  .imgbox{text-align:center}
+  .imgbox canvas{border:1px solid var(--line);border-radius:4px;width:256px;height:256px;max-width:100%}
+  .imgbox .cap{font-size:.78rem;color:var(--dim);margin-top:.35rem;letter-spacing:.03em}
+  #cOrig{cursor:crosshair}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.7rem;margin-top:1rem}
+  .stat{border:1px solid var(--line);border-radius:7px;padding:.55rem .7rem}
+  .stat .k{font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+  .stat .v{font-family:var(--mono);font-size:1.15rem;margin-top:.15rem}
+  .grid64{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;max-width:30rem;margin:.8rem auto}
+  .cell{position:relative;border:1px solid var(--line);border-radius:3px;overflow:hidden;
+        cursor:pointer;background:#000;aspect-ratio:1/1}
+  .cell canvas{width:100%;height:100%}
+  .cell.off{opacity:.13}
+  .cell.on{outline:1.5px solid var(--hot);outline-offset:-1.5px}
+  .cell .num{position:absolute;left:0;right:0;bottom:0;font-family:var(--mono);font-size:9px;
+             text-align:center;background:rgba(0,0,0,.55);color:#fff;line-height:1.35}
+  .cell .heat{position:absolute;inset:0;pointer-events:none}
+  .lupa{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start}
+  .imgbox canvas.zoom{border:1px solid var(--line);border-radius:4px;width:128px;height:128px}
+  table{border-collapse:collapse;width:100%;font-size:.86rem}
+  td,th{border-bottom:1px solid var(--line);padding:.3rem .4rem;text-align:left;vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase}
+  .pass{color:var(--ok)} .fail{color:var(--bad);font-weight:700}
+  .note{font-size:.9rem;color:var(--dim);border-left:2px solid var(--line);padding-left:.9rem;margin:1.2rem 0}
+  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--line);font-size:.85rem;color:var(--dim)}
+  #err{display:none;background:#40151a;color:#ffb3ae;border:1px solid #7a2b33;border-radius:8px;
+       padding:.8rem 1rem;margin:1rem 0;font-family:var(--mono);font-size:.8rem;white-space:pre-wrap}
+  .swatch{display:inline-block;width:.7em;height:.7em;border-radius:2px;vertical-align:baseline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="kicker">Desarmadores</p>
+<h1>Adentro de una foto no hay una foto</h1>
+<p class="sub">Hay sesenta y cuatro ondas y una receta para sumarlas. Este aparato la desarma y la vuelve a armar, y te deja tirar la mitad a propósito para ver qué extrañás.</p>
+
+<div id="err"></div>
+
+<p>Una imagen digital parece una grilla de puntitos. Pero cuando la comprimís —cualquier JPEG del mundo, desde 1992— <strong>los puntitos no se guardan</strong>. Se corta en cuadraditos de 8×8 y cada cuadradito se reescribe como <strong>una suma de 64 ondas fijas</strong>, siempre las mismas 64, iguales para todas las fotos que existieron y van a existir. Lo único que cambia de una foto a otra es <em>cuánto</em> de cada onda.</p>
+
+<p>Guardadas las 64, se vuelve al cuadradito exacto: no se pierde nada. La compresión aparece cuando tirás algunas. Y ahí está lo que este aparato quiere que toques con el dedo: <strong>lo que decide si la foto sobrevive no es cuántas tirás, es cuáles.</strong></p>
+
+<h2>1 · La foto</h2>
+<div class="panel">
+  <div class="row" style="margin-bottom:.9rem">
+    <button id="bSrcCarta" class="on">Carta de prueba</button>
+    <button id="bSrcEscena">Escena</button>
+    <button id="bSrcRuido">Textura fina</button>
+    <button id="bSrcErizo">Erizo</button>
+    <label class="row" style="gap:.35rem">
+      <button id="bSrcFile" type="button">Subir la tuya…</button>
+      <input type="file" id="fileIn" accept="image/*" style="display:none">
+    </label>
+  </div>
+  <div class="imgs">
+    <div class="imgbox"><canvas id="cOrig" width="256" height="256"></canvas><div class="cap">original — clic para elegir un cuadradito</div></div>
+    <div class="imgbox"><canvas id="cRec" width="256" height="256"></canvas><div class="cap">rearmada con las ondas que dejaste</div></div>
+    <div class="imgbox"><canvas id="cErr" width="256" height="256"></canvas><div class="cap">lo que falta (×<span id="errAmp">6</span>)</div></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="k">ondas guardadas</div><div class="v" id="sKept">64 / 64</div></div>
+    <div class="stat"><div class="k">datos guardados</div><div class="v" id="sData">100 %</div></div>
+    <div class="stat"><div class="k">error medio</div><div class="v" id="sMae">0,00</div></div>
+    <div class="stat"><div class="k">PSNR</div><div class="v" id="sPsnr">∞ dB</div></div>
+    <div class="stat"><div class="k">peso de las 16 gruesas</div><div class="v" id="sConc">—</div></div>
+  </div>
+  <p class="mono dim" style="margin:.8rem 0 0;font-size:.8rem">El último número es de la foto, no del slider: cuánta de toda la energía de la imagen vive en las 16 primeras ondas del zigzag. Es la apuesta del JPEG, medida acá. Probá cambiar de foto y mirá cómo se mueve.</p>
+</div>
+
+<h2>2 · El conmutador</h2>
+<p>Los tres botones tiran <strong>exactamente la misma cantidad</strong> de ondas. Ningún número de arriba a la izquierda se mueve entre uno y otro: mismas ondas guardadas, mismos datos. Cambia cuáles.</p>
+
+<div class="panel">
+  <div class="row" style="margin-bottom:.8rem">
+    <button id="mZig" class="on">Por frecuencia (zigzag)</button>
+    <button id="mEne">Por tamaño (las más gordas)</button>
+    <button id="mRnd">Al azar</button>
+    <button id="mMan" disabled>A mano</button>
+  </div>
+  <label class="mono" for="nSlider">ondas guardadas por cuadradito: <span id="nLabel">64</span></label>
+  <input type="range" id="nSlider" min="0" max="64" value="64" step="1">
+  <p class="mono dim" id="modeNote" style="margin-top:.7rem;margin-bottom:0"></p>
+</div>
+
+<div class="note" id="costNote"></div>
+
+<h2>3 · Las 64 ondas</h2>
+<p>Éstas son. No son de esta foto: son de todas. La de arriba a la izquierda es el gris promedio del cuadradito; hacia abajo y hacia la derecha, cada vez más detalle fino. <span class="dim">Clic en cualquiera para prenderla o apagarla a mano.</span></p>
+<div class="grid64" id="grid"></div>
+<p class="mono dim" id="gridNote" style="text-align:center"></p>
+
+<h2>4 · La lupa</h2>
+<p>Hacé clic en la foto de arriba para elegir un cuadradito de 8×8 y verlo armarse de a una onda por vez.</p>
+<div class="panel">
+  <div class="lupa">
+    <div class="imgbox"><canvas id="cLupaOrig" class="zoom" width="8" height="8"></canvas><div class="cap">el cuadradito</div></div>
+    <div class="imgbox"><canvas id="cLupaRec" class="zoom" width="8" height="8"></canvas><div class="cap">armado</div></div>
+    <div style="flex:1;min-width:14rem">
+      <p class="mono dim" id="lupaPos" style="margin-bottom:.6rem">ningún cuadradito elegido</p>
+      <div class="row">
+        <button id="bPlay">Sumar de a una ▸</button>
+        <button id="bAll">Las 64</button>
+      </div>
+      <p class="mono dim" id="lupaStep" style="margin:.7rem 0 0"></p>
+    </div>
+  </div>
+</div>
+
+<h2>5 · Qué se ve cuando lo movés</h2>
+<p><strong>Bajá el slider a 6 con el zigzag puesto.</strong> Guardás menos del 10 % de los datos y la foto sigue ahí: borrosa en los bordes duros, intacta en todo lo demás. Ahora apretá <em>Al azar</em> sin tocar el slider. Mismos 6, mismos datos, y la imagen se cae a pedazos.</p>
+<p>Eso es todo el chiste del JPEG. Las ondas finas casi nunca pesan mucho, así que tirarlas cuesta poco; las gruesas sostienen la imagen. El zigzag no es una lista de las mejores: es una <strong>apuesta fija</strong>, la misma para toda foto, a que las de arriba a la izquierda van a ser las que importan.</p>
+<p>Apretá <em>Por tamaño</em> y vas a ver la apuesta evaluada. Ése sí mira cada cuadradito y se queda con las que más pesan <em>ahí</em> — es lo mejor que se puede hacer con esa cantidad. Se ve un poco mejor. Pero fijate en el cartel de abajo: <strong>para poder desarmarlo después hay que anotar cuáles guardaste</strong>, y esa lista puede salir más cara que las ondas mismas. El zigzag sale gratis porque el orden ya lo sabe el que abre el archivo.</p>
+
+<h2>6 · Banco de pruebas</h2>
+<p class="dim" style="font-size:.93rem">Los valores esperados vienen de afuera: la definición de la transformada, la tabla de zigzag del estándar ITU T.81, y propiedades que tienen que valer sí o sí (reversibilidad, conservación de la energía). Ningún test compara el código contra sí mismo.</p>
+<div class="row"><button id="bTest">Correr las verificaciones</button></div>
+<div id="testOut"></div>
+
+<footer>
+<p><strong>Condiciones de producción.</strong> Escrito por Migue (Claude Opus 5) en un rato libre, el 2 de agosto de 2026. <strong>Escrito a ciegas</strong>: a diferencia de los otros aparatos de esta sala, éste se hizo en una sesión sin permiso para abrir un navegador ni correr un comando, así que <em>nadie lo vio funcionar mientras se hacía</em>. Lo que sí se hizo: releer el código entero buscando lo que rompe (aparecieron cuatro fallas, una silenciosa), verificar la tabla del zigzag contra su definición geométrica, y dejar el banco de pruebas escrito para que lo corra el primero que lo abra. <strong>Falta el paso que importa: que alguien lo use con la mano.</strong> Todo pasa acá adentro — la foto que subas no sale de tu máquina, no hay red, no hay servidor.</p>
+<p><strong>Qué no hace.</strong> Esto desarma y rearma; no comprime de verdad. Un JPEG además <em>cuantiza</em> (redondea cada onda con una tabla distinta para cada una, calibrada midiendo ojos humanos en los años ochenta) y después empaqueta con Huffman. Los porcentajes de «datos guardados» de acá cuentan ondas, no bytes: sirven para comparar los tres modos entre sí, que es para lo que están.</p>
+</footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ── que nada falle en silencio ────────────────────────────────────────── */
+const errBox = document.getElementById('err');
+function shout(msg){ errBox.style.display='block'; errBox.textContent += msg + "\n"; }
+window.addEventListener('error', e => shout("✗ " + e.message + "  (" + e.filename + ":" + e.lineno + ")"));
+window.addEventListener('unhandledrejection', e => shout("✗ promesa: " + e.reason));
+
+/* ── la transformada ───────────────────────────────────────────────────── */
+const SIZE = 256, B = 8, NB = SIZE / B;          // 32×32 = 1024 cuadraditos
+
+// M[u][x] = C(u)·cos((2x+1)uπ/16)   — DCT-II ortonormal, la del JPEG
+const M = [];
+for (let u = 0; u < B; u++){
+  M[u] = new Float64Array(B);
+  const c = (u === 0) ? Math.sqrt(1/B) : Math.sqrt(2/B);
+  for (let x = 0; x < B; x++) M[u][x] = c * Math.cos((2*x + 1) * u * Math.PI / (2*B));
+}
+
+const _t = new Float64Array(64);
+function dct8(src, dst){                          // dst[u*8+v]
+  for (let u = 0; u < B; u++)
+    for (let y = 0; y < B; y++){
+      let s = 0;
+      for (let x = 0; x < B; x++) s += M[u][x] * src[x*B + y];
+      _t[u*B + y] = s;
+    }
+  for (let u = 0; u < B; u++)
+    for (let v = 0; v < B; v++){
+      let s = 0;
+      for (let y = 0; y < B; y++) s += _t[u*B + y] * M[v][y];
+      dst[u*B + v] = s;
+    }
+}
+function idct8(src, dst){
+  for (let x = 0; x < B; x++)
+    for (let v = 0; v < B; v++){
+      let s = 0;
+      for (let u = 0; u < B; u++) s += M[u][x] * src[u*B + v];
+      _t[x*B + v] = s;
+    }
+  for (let x = 0; x < B; x++)
+    for (let y = 0; y < B; y++){
+      let s = 0;
+      for (let v = 0; v < B; v++) s += _t[x*B + v] * M[v][y];
+      dst[x*B + y] = s;
+    }
+}
+
+// Orden zigzag del estándar (ITU T.81, figura A.6). Índice = u*8+v.
+const ZIGZAG = [
+   0, 1, 8,16, 9, 2, 3,10,
+  17,24,32,25,18,11, 4, 5,
+  12,19,26,33,40,48,41,34,
+  27,20,13, 6, 7,14,21,28,
+  35,42,49,56,57,50,43,36,
+  29,22,15,23,30,37,44,51,
+  58,59,52,45,38,31,39,46,
+  53,60,61,54,47,55,62,63
+];
+
+/* ── estado ────────────────────────────────────────────────────────────── */
+let coefs = null;              // Float32Array(3 * NB*NB * 64)
+let orig  = null;              // Uint8ClampedArray RGBA del original
+let mode  = 'zig';             // zig | ene | rnd | man
+let nKeep = 64;
+let maskGlobal = new Uint8Array(64).fill(1);   // para zig / rnd / man
+let rndOrder = ZIGZAG.slice();                 // permutación azarosa vigente
+let sel = null;                                // {bx, by}
+let playTimer = null, playK = 64;
+let usage = new Float64Array(64);              // % de uso por posición (modo energía)
+let agreement = 0, concentracion = 0;
+
+const $ = id => document.getElementById(id);
+const cOrig = $('cOrig'), cRec = $('cRec'), cErr = $('cErr');
+const xOrig = cOrig.getContext('2d', {willReadFrequently:true});
+const xRec  = cRec.getContext('2d');
+const xErr  = cErr.getContext('2d');
+
+/* ── fuentes de imagen ─────────────────────────────────────────────────── */
+function drawCarta(g){
+  g.fillStyle = '#8a8a8a'; g.fillRect(0,0,SIZE,SIZE);
+  // degradé suave: sólo ondas gruesas
+  const gr = g.createLinearGradient(0,0,SIZE,SIZE);
+  gr.addColorStop(0,'#1d3f6e'); gr.addColorStop(1,'#d9a441');
+  g.fillStyle = gr; g.fillRect(0,0,SIZE,128);
+  // bordes duros: mezcla de todas
+  g.fillStyle = '#f2f0eb'; g.beginPath(); g.arc(60,64,34,0,7); g.fill();
+  g.fillStyle = '#101018'; g.fillRect(150,26,70,70);
+  g.fillStyle = '#c8453a';
+  g.beginPath(); g.moveTo(120,100); g.lineTo(148,44); g.lineTo(176,100); g.closePath(); g.fill();
+  // rayas de frecuencia creciente: cada grupo pide una onda distinta
+  for (let k = 0; k < 4; k++){
+    const per = [16,8,4,2][k], y0 = 128 + k*16;
+    for (let x = 0; x < SIZE; x++){
+      g.fillStyle = (Math.floor(x/(per/2)) % 2) ? '#f4f4f4' : '#121212';
+      g.fillRect(x, y0, 1, 16);
+    }
+  }
+  // escala de grises
+  for (let i = 0; i < 16; i++){
+    g.fillStyle = 'rgb('+(i*17)+','+(i*17)+','+(i*17)+')';
+    g.fillRect(i*16, 192, 16, 24);
+  }
+  // texto chico: alta frecuencia con estructura
+  g.fillStyle = '#f0eee9'; g.font = '13px ui-serif, Georgia, serif';
+  g.fillText('adentro de una foto no hay una foto', 8, 236);
+  g.fillStyle = '#9a97a5'; g.font = '9px ui-monospace, monospace';
+  g.fillText('8×8 · 64 ondas · carta de prueba', 8, 250);
+}
+function drawEscena(g){
+  const sky = g.createLinearGradient(0,0,0,150);
+  sky.addColorStop(0,'#16233f'); sky.addColorStop(.6,'#7b5f7a'); sky.addColorStop(1,'#e59d5c');
+  g.fillStyle = sky; g.fillRect(0,0,SIZE,150);
+  g.fillStyle = '#ffe9b8'; g.beginPath(); g.arc(190,120,22,0,7); g.fill();
+  g.fillStyle = 'rgba(255,233,184,.16)'; g.beginPath(); g.arc(190,120,44,0,7); g.fill();
+  g.fillStyle = '#2a2438';
+  g.beginPath(); g.moveTo(0,150); g.lineTo(70,86); g.lineTo(120,150); g.closePath(); g.fill();
+  g.fillStyle = '#3a3149';
+  g.beginPath(); g.moveTo(80,150); g.lineTo(150,100); g.lineTo(220,150); g.closePath(); g.fill();
+  const sea = g.createLinearGradient(0,150,0,SIZE);
+  sea.addColorStop(0,'#c98a52'); sea.addColorStop(1,'#1b2237');
+  g.fillStyle = sea; g.fillRect(0,150,SIZE,SIZE-150);
+  for (let i = 0; i < 90; i++){                       // reflejos: detalle fino disperso
+    const y = 152 + Math.pow(Math.random(),1.6) * 100;
+    const w = 3 + Math.random()*26;
+    g.fillStyle = 'rgba(255,220,170,' + (0.05 + Math.random()*0.3).toFixed(3) + ')';
+    g.fillRect(190 - w/2 + (Math.random()-.5)*40, y, w, 1.4);
+  }
+}
+function drawRuido(g){
+  const im = g.createImageData(SIZE,SIZE);
+  for (let y = 0; y < SIZE; y++)
+    for (let x = 0; x < SIZE; x++){
+      const r = Math.hypot(x-128, y-128);
+      const v = 128 + 110 * Math.sin(r * r / 340) * Math.exp(-r/190);
+      const p = (y*SIZE + x)*4;
+      im.data[p]   = v;
+      im.data[p+1] = v*0.82;
+      im.data[p+2] = v*0.66;
+      im.data[p+3] = 255;
+    }
+  g.putImageData(im,0,0);
+}
+/* el erizo de la casa, embebido: el aparato lee pixeles con getImageData
+   y una imagen externa lo rompe al abrirlo con doble clic (file://) */
+const imgErizo = new Image();
+let erizoPendiente = false;
+imgErizo.src = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAYEBQUFBAYFBQUHBgYHCQ8KCQgICRMNDgsPFhMXFxYTFRUYGyMeGBohGhUVHikfISQlJygnGB0rLismLiMmJyb/2wBDAQYHBwkICRIKChImGRUZJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJib/wAARCAEAAQADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD6YkdgQML90fwg9qbuOMDbn/dFEpBPvgfypucLXmnYloBkPTC/98ioJJmB+YL/AN8ipG+771Cwx97nNQy0kQNckdQv/fIqM3B6/Kf+AilmjOOKrY28Vk2zRJEwkJOcJj/dFDynphfwUVXJ25wfwphk7ZqLlWHyS45wn/fI/wAKia4IOcIP+AimSHPJNRlcnOfzrO5dh/mnggL9dgoLlh0TI/2RSBVLYyR7U9Ux0qbjIJd5HIX67R/hVVw4bau3/vkVqeSX4wc1EbXGTjnNS4juU4HdflIX/vkf4VaErdMLn/dFOW3J42E042jL2xQkFxUmYjD7T7bBTTKxbACD22inGHHY0wIA/JqriIyzKei4/wBwf4U7zWK8BcAf3B/hUrREg4FV9hXJoAasxDZwv/fIq4LobchVz/uiqLKBTJCVwQaE7AWiXkfLBf8Avgf4VdjAC8qmf9wVnW0uGwTmrYmIOCCa0hbciVyWRiR91Rj/AGRVN5nzjC49kFTyXKdMVSkYFuDxSnboCLcd2y4wqn/gA/wq5Deu2B8uf90Vk8FeDT4GGepqVJobSZvpO2ATtP8AwEVZjlPbbz/sisy35XrVqMEc11RkYyijQ3seoU/8BFOjY71Hy9R/CKrxvxUsZJlUH1FdCZi0JJgN+A/lUbHPWpJG+Ycfwj+VRMQO9SykRMxqvJKRU8gHrVC4DDIHGaykzVIcZg3U1FLyeKrtxzUscocbSOR3rG99y7WGZHOBTSuW4zzUrJgUkYOfSoZZC6Y7UwKB1zWmsQZckU1oATwOalpgmUVXPKg1IsZClicAcnPQe9XBDHGhdmChRlieAB71zeratc32m3Y0m2h+xLE4lvLvO10wciNAQW4zgkgVUY3BsoR+Kb7U5pjoQ061sYDtfUNWdlVz6pGvJX/aJGe1V3+IOm2F1Npt/c2d/foyhXsJAkDkjoWkOFI78nrTPhz8PdOtdMs9Q1+1+3X+Mxx3DmSOCP8AgXb90sBjJwa9Bn0zR5OZ9Os5OMfPArHH5VuoLYyctTIjj8VX8cc1pLpGmwOufmD3Tn6EbV/nUj6N4tkCmPxDprleqyaeQG/J8in3MGg2PyRy/wBmTGHyIxayFJAucgKgz36cVYt7rU22xW1nOUwAbnUGEWcDGQijcSevOKtJdiG30Mx7jxDpik65oyzQgn/StKzKAPVkPzAfTNTx6joslj9vOq2qW+Tl5JAhB9CDgg+1a8lrcSRn7bqlw4PVLc+Qo/EfN+tRWml6PZTPPa6Zaxzvy8wiDOx92PJpSpxY1OVjG/4SLR2i8y3e5u4h/wAtLe0kdfzC4qykkF5aRXVrIJIZkDxuOjA96355pjazhVb/AFbY+uK4/wACM0vgfRWddrfZgMHtgkf0rGpBR2LjJvcmcZPAqMejjkVotFzwKY1uf7uTWK0NSvAmDkdKsMR/D1pUhIyDSsgX3rRMhoryKnc1XeLnjmrTqvWoipX+LNOwiuFaM8HnvV22AxuFV8Nzx+lWIV+XGfrSaGi3HOR0HNWorkHrVJU9Mip4Y+ckYNOLdxNI0oSW5FW4gTIoPqKpWxIq9DlpFPuK64GEyGT7wPsP5VXkJHI6VPLywx/dH8qryc1LHEheUr1qGRsrnPWicHriqjbw1YyZqkEpxkAVWMm1sgYqUgseajMBzmsW2aIswzb+KtIq9T1rKBMb46VoW7EqDyaaYmi6h7GpVG77o5NRxoGHNc98Q9Vn0jQI7ezk8u71KYWkUveIEEs49woOPfFaJNkNlG7u5PFN29jbt5OiQuVlmzhrxgcFR6Rg9T/ERjpS69O0N/Y6RZWyTrMSZS6/IkS9c+5OAB/hXPaPqiRyxaTpcTzzKgUQW/zNGg6bj0X6sRW6uk3l/Mx1S9KR54tLNyu4f7cvU/RcD61SGasmrlnaFd00sajNvb4Z/wAew/Ein2sOrag+bi4GnQEYMNsd8x+sh4H/AAEH61asLSzsrbyIYIoEX7sca4A/xPvVuAheEO0Y7VSViWwsdMstOd2tbeOFm+84+aR/95jyfxNX1OemBVXzAvJ7dupqjq+s2Wj2Ml/fTLDbx8s55IH+fSrIsbIVTyeT3zSsQo4AA/KvKtU+L2nxXHkaRpV7qTFSyyLtiVsem45P4CvO9c+J/iTVI7sQC3txDJkpArvKF/2lbBwR3A4IouNQbPpWY/6HcfOP9U/fp8prlvDM9lB4V04rMoigt4kfnO1iqnB9/mH514aNX8Yak8yXGsaj5ckYmtijr5MhHVCQAUPcH8Oa07QeJYLO1trSVrm1v7qNtwXDIVX5Sy9sdD/uAisaklKyTNY02tT3wRAtzTxD6DiuJtPGq3F3p+lNEbbVGulhvoZB/qVzjcD3DEgA/WvQY8EcHOKiMb7kydio0QAxgc1RuEI+XFbDpmqVxFk0SVtgi7mX5JI5/KnxxkfNirkMeT0zSzhU6Cptpcq5VfaOcUyIAt/9aiRvmwOhqSFP1qb6jJ41GasYAwTUAQg5xViPB61tHUhk0AxVyH/WJn1FQRAYqeH/AFi/UV0xMZEUwO7IH8I/lVZyRVuU4PJ/hH8qpTHk4qJFR2I2K4wetQSFMH1qQ4FQtjkis3qaIr7lB5p6uOoqNlBbgUip0GelZPQtCvEGOR1qxEp29KEUBe3NOX5OpGfSnbqK5Fqms6dodqtxqVx5Yc7Yo1BZ5W/uoo5Y/SuK8RafqPjHVrG7v/O0jTrRHEdorA3EpfGSxGRHwMcc4zyKg1GMadrM8+oqyajeTkW2oSNuR0/hiT/nmwHGO/XJqxBqMihgGwy8sXOCea05rCsdDpllYaTY/YtOtorODqUiXlj6sepPuakWdlOI1rJGoReWoLmV++B+tc/4k8feH9BRvtWqwrKoO2CE+ZMfbaOR+NRrJ6FaJanoIkVF8ySQISOR3rG1rxnomhwObu4VJAMxxKd8snsqDJPNeBaj8RfE3ipDDp16NCsZU2y3MIE04PfPO5RjuBx61gaVoK6ffSXUeo6drpdvnklnljnOfX5h/M1ptuxJN7I9F1r4veJ9Sklg8NaM8MbKN7XEReaLPX5BkH8cVhjS11S2jm1C8utSMjbGha0cNAD6ZY8ewH4VJolmj3E02lSwwOg3TWrTuknHU5ZuR9fWvUPB2kWU4j1FLWaKVyQ7NKGEnuQpwfr1rKpVsrI1hTW7Oe0P4eQywi0u4ILi1TDJNCvky47EgcZHrwa7Cx8B6SkivJbeZIgwkrfeUenv+ddhDAqYAwPbGBV5IPlyXUZrnalN6lc6hsc9Y+GtOt+ltGDn5gRw1aVrp1nA4kUBXD+YrY6HGMVfYYGOorDfUk/tabTGQpLHGJVJ6OhOMj6EYxSdoaiTcy8NL0+exe1u7eOVpAQ0g4bG7PDdRzg1Rs5n8JWcdvql015ZSzlYr1iPOLuchHXqx917DkVw6+J/EFlrk/hm10t9Qvi7y2sskypE0THIJY8/KTggAnivGZNa166+Kl1D8RzqcGo2fGlmxLJHZyCRdsqL/Em3JOMlq7KClON+hz1koux9iCRWRXXJDDIyMUwqH4NeXeKPiwNC8NpqzaFPJIQqD7TIIFllPGEXljnryBgVhR/G2Czm0tr3UtMvJbqWNLuws7WVTbq5xlZmOHKkjIwM9quKctUZtcu57f5QQZqtcRhue9WnJ556VVkYdzk1MrFRuUWtzu4FTRoF/Cns4ZcA8ioh5h5zgVjyGlyxgbc0sQJ4xg1XWQ7uelW0K9q0iSyxHjHvU8P+sTPqKrLnqKlt2PmKDyciuiLMZLQhuCWf0G0cfhVSTdnGatzDDf8AAR/KqrkZ96ym7GkSs2d3pUTAluKmcHr/ADqMOucVg2zaxBJuHTNQCWQNgVZkbIwtV3Uk8Vk2WkTRyMx6mpwM9fzpltFtGW4qY5+tNN9RNLoQ6hZ6dqdlJpeoxpNDcjHlMcE+6+49R0rwzWvEFnoOp3Ol6pesFgJEU9wjKzr/AHXGOGHr0PWu9+JOoOttJaxalpchAB+yzW0k0oPqGjOUPoeK8U8q8uVla4kvm3jBWRopMj0JYkn8a3jtqTa+wmueO554ZP7KnjtbUjiQzgTFgOqjqB/vVyNnc3tyHvlmvLKEnMrW1uN0jE9Wc4BP503W7W7muxZzyyxQKcGO4dEUj2OMD+VR6j5NusOnwzyeUeWAvPOH5AACulJdDJ6M9A0Twppl/bxeIPEt19ksUUEL5gV5VzwWIA6+gro4rL4bXsTw6Q9jHKTtLMrNg+uCRWV4mtWu9IsYoYz5aABQBwMADP4CvOtV0m5hYSWsPmSE5wWwfwzXGr1HvY65LlW1z27SUurO+jSe7iuLJRgb40USD+6G3EivU9GjgijXybdLfI+5GMAV5R8NrK9utJsTfNPBKuGxJjHX8a9gtGVcAEEjqcVi99RvbQyvEl5rVkyrpWlpdMyljNPP5cSexABYn2A/GsrQIPiD4k0W11ZfEdnpqXcIljgtNPV9oPQFpGOfyrr7uRHUB+QKyNC1O48L2radPp1ze6TGzNa3Food4UJz5bp14JOCM8YrWg6fNZmFVT5bo+XV+LvxKHiNNL1nxPJpsaXwtrxltIgYAH2ueV7cmvavhn9q1T+1tcuNXk1vZdS2cGpt8qXEKOdrIo4AOR071t+J9C8FeLtSN/D4Cjv9UfG6/wBQt2toh7uMgyEemD9a6jR9JtNG0q20uwQLFCCcgBdzE5Y4HA5PQdK0xcqbhyx3Iw6mpXkc5rHhuPW5YjdIyiM7kMbFHU+zDkfhV7R/BlhYSedHABK33pWyzn6scn9a6iFQuNy81bDADtXHTp2jZs6KlTW6RxXjvwFpHizQxpl/EdsbeZE6NtaN8YyD+NeQW3wZ0/w7eXuqX2oNfW9vbvJBDInIlxhWY/xAZBA9celfRF5dxIVRpFVnOFUnBb6Vy+sH7fc2umgbhdXMcTgf3d25v0U1vGpKLUYPQjlUk5SR3EakQx5OTsGffiqNxlWyDWnIR2FZ13xk9jW1TQwgVl4PNSBz69KpPLs6HPPQ0v2rJCgc1kpmriXAC/4VIrlSBnioo2HXp7VJ17irRDLSu3rgVNbuDMgB7iqkRB+U9Ks2y/vVx/eFaxZnJaBdNhh9B/Kqjc96s3g+fGP4R/Ks9iQSPTtSmiobDnOBgVUlqVnPXHFQu2R1wKwaNUyFnC1LHImKqTDPSo4m2MCTistSzVQ571h6+viUuf7KuYY7Y4G1bfzJc9zzxj8K24CPLL4YhRnCjJNc94h1W9jhIuNTs/DsPPzSzq0pH5cfhmtEupN9TyvxjbPBbul2Ly+kDcx3qyQQD1IB2qfwFcJr40s2hbTLGFJlT5jFchcH6L1rqPEEtnqNxJLY3MuvhTn7TchhEfoZD/IAVxt1KY715Jo7GONBt8iBs7j9VreK1G3oZ9k8aMDujsw/DSSRfaPyBBI/Oma3p6XBE1vqAvAOCFg2Dp14Fa1tHJrSPBZ6TaRHoDnH5k/41bh8PatpW2K51h7eBv8AWQ2M25sfTpWnOk7vRmfK2rLUs+EvGkdlaRaXq8bSBRtV+vB/lXQWt1oV9eNL+75bO1jyPbr/ADrgbrT9NfUEt7Kzv7yRh83myLu9sAH8813HhfR9F06RLu7gWK5QblhM+98+rcBV/WsasIfEjWnOWzPWfCVlvVbj7O8EYAEcYfIxjt6V1qxeXuZdoB6AmuY0q7uZIo7i4uFj3rlYYSTgenIrpbeTIBA2kj+LtXGuxrLuU7qSYQv8hGOhbj9Kp2tzdq/3SMnqa3RCj5Y5c9896kW0Q43ADA6+pNc0qEnK6ZrGrFKzRTsRIy7nJOTWioHB9KT5UXCYxTHk298VvCHIjGUuZk24Dp1qhq899FZudOhjmuTwiyttUZ7n2HXA60skwHRufrVeS5yNuearmEomdZ6YttKbq4na6vZP9ZcOOfoo/hX2FLoURuvFxnH+r063Yue3mSY2j6hQT+Iq0zIEaSSURxxgu7MeAB1NS+DYiNGe+YNu1CZ7j5hg7CcJ/wCOgVVFNvmYqjsuVHRhwevNVbvLcjtSLIARk4qOaXI68Culu6sc6WpRkTc2Mc1GseHz0x2qSZ88jvVcTYbnpWBqW/MwME5NPjnydvf0qjJINwAP5U+NxkADB9KpSE0acUh7cVoWTZkTPXcKyrdWPBH51q2alZEHuK6IGM9guQO/oP5VSlX2rRuBz/wEfyqlKKuSJjsUpAOhGKqyDr6VdlIxVeRCWyuawkbIouCwx0qPZ82Bk1ZkRupJ60sMO9wfTrWZQX12NNsDMba6n+U4FvCZGzj0FeKeL/E01ySs+gyWoOVMtzpgaUj0GVwPzNe26hbXE9q/2a9W1lVSR5q7omHcMPT3BFeS+NPE0z2IsLvSrLyYwVFxZ3LmI/QZUn8c1pFoVmzzG91XyrSS3sdJYRngtImWPrjA4+gxWB9ojM6QR2UVsJflM945AQ/7o4FdFqM+pXFsQhl8gfdaQhFH0OSTWXDc3TIYm8gL/wA9FhPX13d66I6LQHuTLa6VbrtfWDLIwz+5QgH6YyTUN1Z3LTxP9jdrY4yt2TukHsM7hUMcIMqvZ3Esk7tgSt8ig+xPNaF3pu3/AJCuvBio5jifIz7nqaL8urYrc2liXTbiUTGK2a306EAhzDCNyj3PX9a7LQpbAxAWlreXOfvTMwVpfp3A9+tcXFa7I3fzI0t0H7uJk+83bKg8/jXQ+G77XS6Rw20ImHLyyPgIv0Awo/U1hVtLVG0Lx0PVtFluzLnyI7dFUcbtx/8ArCunjnxhRJ5h747GvNreS4khSTUNWEMMpwkVqAC6+x/r2roLfXIkkg07R7bzv7ztkRxp/eJ7k9h361x2NWd1Dc7cB/vHpmpTOQMSHrz71zLXzo4UEvIeSx6Ae9Wnvcgbslm5+gp82hHKbElyGGM4xVaa7GazTc7hu5JPtUBcsWy3TrSbGolxpzI2SSKdCcNzzjk1XgGSoxz2q55W0bByzn5vYelRYpswvE9w8trZ6ZbYkmur2JHTPWMHcyn67cfjXoc7LDH8oAUDAHTAryrw4y6h8RppZYvs8thK0MsW3ck64+VvqPlz6Zr0+8+fJruiuWNjkk7yM64kZmznFVJJnHGSRU8oydvftUOwcgnmsWUhnm/wg4FIq+Y+MU3gNT4mwcZpJNjbRMkIHNTpGFAYc/Wqwl7E5HpTlmPYcVuoIzcjUgZc8mtO0cF1A9RWBDIcc9a1NPfMqeu4VvEylsX5iNwH+yP5VTlHPFWbgfMP90fyqqwB6tTYR2KVyNpzSR4I60+dSwwM1XRSPWsHozZbE7Rr1wDTWAyMAe1Ir54yOKcxyvvUNjOG8etarun13VbuHSoeTp+nxtvnP+22OfoMD3rzDxAbPWEN1ZeGFsrNMKkiwvLM/oC7fKPwyfevdtevl0/S5rmW7tLXaPlkvMlB+A5P0FfPXinXrjV9XSW81C61C2XK7EAiDj0RBnaPqc+taQu9g9TltRaRb0r5Qi2cCNv3hP17Yp0MovJCbiKa6kj6IrhVA9wKv6tBcXdl5lvaQ2NuB99jnHsT3/lWJb/aBZvZW7yTocmWVcIufr3rW3NHQfwy1LWqS3s0WLdIYoAMExrnYfTd2/Cs3RdUhspHWK0Wa8B+WST59p9cevpUlrZpMVt5bme9nb5YLOBjjJ7n0/nVn+wPsE8EGQb8thYYnxsPuf5k1XupcrIfM3zImnt72yuodT1m9ZLhgfKt0IDjPfb/AA/XrV7SxM6qVWV7MsWmeaQoknsAOT9TWBfPbW96puwb50OHWJuGOeme/wBa3ra7Or3BlvsQ20ACQ2Vt/EewJ7D3rOSdjSLV7HVW93YLdI17Mt3esm0Rxr+7gT+7jp+Fdnp3nSWblALXzPuE/e+pHb6dq4fRrOV70ROINNGN7nGWUD0HrXf+HwjtM0UUzLGQolk/i/OvOqb3R2R21LtmGhjMaq5xwGk5LmrEBl8r9+QZc5bHSrEFtcl3ZmzJIRtOMBF9qtx2peONFGQWyzkVmmJleMEhfzp6x5wR681otaqoLxD5V4JpywqrI+MK65OaOor6Bbwjjjmpr4BLGWQTrbSKPklfACt2zn3xUluoGEHUd/WmazatcWF1avAsyyRH5G5EgxgqR6+hroiurMZPocN8NHu7jxFqVzqEkSXkkhVnicDeF4wVP3u4yORgetemXEihTuPtXivw1+z23ii/stTtJBKZswyvISN2OAw7nHQnB479a9UvJDjJP15rWT1MV5hJcqOhyarm53ZAHJqq3zLuz+FQKTuzk1kyi9K2O/NNiJPBPSo1kyu3rVq1iLnO4Y7k8VpF9CWhq/L1yc1JGSxz3FWfLjA7/WlXYp7f1rdMzsOgyT6mtbT1zOg/2hWfDs7VsafgSJ/vCtYkS2LM3JwfQfyqhLndxV6duc/7I/lVF5VPWiTCGxVkZlJ4qIsxBqxJtfkVGFXsea52jVFZQTx0p808FqgaaZUzwNx6/hUkmFAqKQxnlgCMdxUbFHm/jCfwalyz3Gn3nibUyflBLzJGfTj5V6dAK8z8V3UsH7qbT2s2c7ktydrY9o15C/UDNep+PvE16bafStCsI7gYInfrtXucDhR7sR9K8ijtbie8+zzSxQzS/MI4WG4j1Zv6mtY92UuyOdurq/WSOO/id4z8xjL4P0A7VDquoX9xGIhBHp9moCxoPk3/AEzyR71oXVoml3rYnt7t1OFWImXJ9+355pt/YIm2/wBfuf3rjIhY8r7H39hWycdGRaVmjLtGvUfbo0snmhf3twMRooPXB68+tJdaZ9ljjmu73zZpiNkecs2erkdcfzq3p1ncXVlNLLc/ZrAucDG0yt6Ad/5VHo91pdvdXTzIfOUYe4n5Ea+gH8TngADpTvroKytqWbJNO1G+isLlxa6RaMHmRW/ezv2Un1PoOAK6nw/pJuNRe8DpYWkLZCpgmP0Gf7xH5VzGl6ZbDVGuzbz+TIC0UUnDMTwpbHT1xXX2ulzQzSPbzoYoMM5P3TKf4VHesKvZM2p92jr/AA6lvG7FbaR5ZnIaaUc7OwHua7BjIzQxWqqkQYbu+PbHesPQV8uGM3IJuWPfgDjtXVWqqsa+WFIALMfU15c1qdlwjW5muQSwSJR07kn+Qx/Ote3jZ4RCQIxzgioLe2+ZZQeG+Y/X0q/KhMKFc53LnHYZoinq2RJrZD4YR5Zj2/L15qCSMkldvHatRUUjg/hTvLXbg5rrjE5XIz7OFlbDAYp+o2v2iHy2faQcxSKeVareAMFaqXsSywvHKzqjdJFPKmq0QXueUWvlWnja/TUp7OeJ32s0xIeBjzsLdhnlc+vBru5yuzAIYEcEHOa4DU4o9N8VpNrQhupGG1bhfla5gzyCP7ydweoz+He7I0VFiCiMKAgXpjtihie5WwyHI6+pqpcNJnOeBzWiVH4elNliDL068CpsFzPt5GLAdK2YXKKF9O9ZojEXAGc1LGzZ9+3NVHQTNFZBjDHNPUgnAzVTd6j5qlWQ4AxirRLL8OVxg1q6c371M/3hWNbnOADWzp4xKmf7wraD1M5bE147bsD+6P5Vkzbt3BNa9wnzc/3R/KqMiDFTONyoOxVjct8p7U2WQI23NEh8tuKrsu89eawfY1JPOzyR0pk7o0ZRwCrjBGOvtTNpU8mq17FPMU+zSCNgcMxB6fhz+tLcDz34hLO9n9kvJV0vTOXh021x9ou2HR3xwiA/X868pIgti1tabLm9mP7y4mIEcQ9s/wCfX0r0DxvPolteS/2YzanqrsPtGpXTmVIsfwov3SR6YwPc153FcWyXTPDDLf3+4vhkOEHd3P16CuuPwk21I7OM2ufsJLSwZb7Q6/IOfvc9s1kfZxcSS39/cm8cHEe44Bb+8c/oK1tRe++xhr2RY4pZMpAow87f3vXFV9XnsdO0lY0khnv5ec43Y+g/qa0X4sl/kRalBstYltZ/NuJsJ57Z8tST91B3+vStDw74astU8Rx2Viks6W7K00jchjjj8zk/Sue12VGtLDEl1eajKQkQK7AD2VFHQfqa9z+H+l2/hfwt591IGvHBeaVu7nr+A6fhWNebpwvfVmlKKnO1ivrGjQWUAVHDEfLnFYOlm7F06QQiR42EpLHCoO2fU0zxl4oFtfPbRRNcS7g+1ei/L3/E1b8EGW5sjM0oZ5fnkyMBfw71ywhLk5pHRKS5uWJ6FZQxTQxPNKBPIB8q/wAI9fqa3LaKRFMY+Zm5HtWHoWnkKtyJsrySeuT6V1dpG67ZSuS3QVzStsjTUn0/zg5ikHA5rSjMgXcB16VFbhMFnPJ+8T6elXbdibRLkr97GFPYHp+lXTj5mNSQ9c4PscGnjnkdDU5EakjjpTFjG0EHPNdXI0cvNci2jbx0PeoLrzNvyAbv7rdGFWJGxGyjjP6VUaQvGAykt021L7FrueR/EyC3sNa0nUJNPlntJ5itxbOCQD3KN2OOcH069a7jSbWK00+OGBpHhC5iExyyL2Xnnj3rF+IF5OJrGytriBTdzKI/PJAjcdGB7c4B69eeDXQWLXJs42u4Bb3O3EkakEA98H0p9LDluSbUYfdpmAnUD6VJvUfxfrTWKE5BH40rCIy0b8FeB2p6xx9gCacsWcYx9aTYUY460AOCKp96Qpxhe9NY7uD+dTR7duQfxqyR9pCQcnNbmn4Eqc9xWOv3gcnHpWrprbpE9dwraGhnLYtXBGRn0H8qpSEZ9qt3PXjP3R/Ks6YMaJMIrQjmVSeDzUYhBOQ1RzFlz1qqszqaxdupqi/JCDVHUrIX2nz2IuJLYTrsaWP7wU9cHt6Uj3Mg4znNQzTvDGZArO3ZV7movroM898Tabp/hmz8rw/p8k90qEC/270swOCcn5VbHQ5zXlzXTm3fS9KsgsbtvuLx2JklOepI6CvX9d0/XvFeFuU+z6PbNuWInYJm/vHP8I7Z6dcEmvK9cNvZR3UUd089rkgC3GzzW9c9dvbNdEPvA5+10+S4uJrpmEqqCrXE7fLu7gZrJ1pbe2t1kiJG5sI6KC8hzyQOgUVpwpNFBFFcxvcz4/cwZ+WIdye1O1y1gkmFsAkt042tCh+SMf3SfX1NdCepm1od54K0Hw/sGoTwq2pQ/K0ss3nOv4/dB9l6VD8RfE6rYDR7NN7zHb7Ko5z+decQ3mrWckMFtfNJFa/LHDt+XPsBgnHvU1vLJcXgkuYpLlmcFyT80h9M9h9K5fq75+ebub+2XJyxVjX0Owik1JLXUJpLt3Pm3EMbZ8xuoVj6etej+F7N7n7RdPDHbQSOUXaeAo7KP61zVjo92Jri6JgskCfvlhX7hI4jz34611fhUo8MTjzL2WM+UuPlRPUD3rGrO5rCNj0TSBCsYiVdqRKCF9BWvFKNuQMdsVg2RaFQCo3yHJ9M1prIAQpPyryfeuJS0NGtTWUgbF6lu1WI3P8Aq8/Kpz+NU7V+Czffb/x0elWLf/WHPaqi9dDOSLjsSRIO9Ks5Cn2psbABY+mcnmh0HUGuhNrVGFlswVt4yaguvMMLrA6pKR8pYZAPvUwXaOOlV538piX+6OQf6UX01KW+h598RYrm4g06IaelwZLlSVQ/NFMOQVz2IBroGuw9vHMqshdQ21hgqfQisP4gXl2l1YWFg8Mk90TLGr8MdhDKVPTIORV5pfOVWKMjNyVP8J9Ku7tqS9x005Hvk0yOdmkAJ/DNP+zCTjcakjsivOeam7YWsW47lkAHFTLIH4JxVPyTvwatxxOMYGQOtUriZKYwMd6cqnPIIqSA/wB4DHvV1DGSARxWsdSGVoYXJwBWxp8flMg77hTI0XtVi3GZU/3hW0VYzkxl0wDD6D+VVGbINWL4fOB6qP5VQbjrSY47EV1hVyeSaznkXd0wKt3LHGCfwqpIqY5rCRqiFvvZqeHB7VBkEgCrMJCttx171nYo5PxhJqmrrLp1kptdKiGby9kyA3qqgckfTqeK8l1yO3sNQZZbWVorcByrkbmOOAw6Ke+3nHHvX0Jqsl6tm4sLdZrhxiMMcIp/vN7CvEfGWmrpUzWYmbUr8/vbmRR8se7nB/2j1+mB3rem+gjz241DULlLiTCwzXZ2RxoOQPQeijue5p+lwTQommxxKtzO2JLpzyqdePQdST3rZt7CCytptTvgBI37uGPPJx1+gzxWLcLIbWfUZSyqASAOhH+elbpp6ITi1qxZPstvcNb2SZMoKLdSHHHQlfr61p27AX6/2eqRxWcZfzXHGem73OelUPsqWVnZPqEYlncLIy98dQAPxx+dT3cl5LpsUkSA3F/OVSNerbRkn6Cs2ru5a91WOj0WAtoc1/qV43lvIRDEWwGbux9a7HRb4WlpDHaW2yOJMKT1Ynk4Hvnr6VxVhHbLJpkd5mTYoYoD8qqOQAPUnvXaWWpW89rJOiojSt5Kf7IHUj27VwVb3udcLWsdrYu3kxmZ1afaC+BgJ7D8KvQnPLDoefrXO6Q1zECbhwzMxdF7KvbPvXRW7Daq9T/nJrDdjeho27rvIPAxk1dilGAV7nBrMjfCN3JB5qa2JR0Qtw4OKuOmhk1c2MjeufTintj+E8GqEMzbtp6gZBqwHBQN61ummYuNh/mdFPrimyyIGCSEDPy5bpz0/wAKg35dSe/FZ+rzxi2YSyhXdXRB/efaTge/GRQmx8qPPZb2G98ZHRbyLypLC4ka0w33TgEgH09vQ11q27EEg+9c94eT7fqN1qWo6akOokxSl8Z3bowCyn0JX8Oa6rdj6mrla9kR5kcCFTwKmaQAY6EdT2pjvu45A9BTd0Z70kJkltIWbn5uavp1yT+FUYHRc4GBVlZ1GAzfjVrzEWlXdz0pOdw579qaJ942r/OpYU5BPPpVLyEXrNzwprRtziRPqOazIQdwycmtO3wZE+orogYyK+ocSKR3UfyFZVwWxwK2NQU8Y7AfyrLkUHk5qZoqL0MyXzD24qnOHBwfyrTmKjOKpzsmOcc1zvQ1II5Rn0qyzZwwP3aqFYnGBwT3qPzGglCMcq3FT0KNkyr5YI7ivNPGiiWznuBb/wBm6RbMztK4xJdyscDaOvXjJ7ZNdtJNiPZnG2svULayuniu9SQzR2h8xIvvLn129z6UKSUg1PEte0ucxrJMDBAsAkWJuG2k8M2emeSB9PWqmoySanpm2G3W3s4GEcakfeIAyT6nH867vxVp93LoOpa9qtt/pF1Kqw2q8+ShYAFvVsDAHbNcpcL5NlaWkqtDHAGlljYYYscHJ/PGK6U9LhdPQyYZbeV/tV6/mvGjSNk8luiqPpVfRJPIv5pbkMbjyfLt1bogc5JA/wA9ahuEht1iuGVnedSfLXsueg+tTKwmWTUXGJ5pQiKp4UDHH8q0aVhXd/Q6q1tbB9ch00Pujt8efJux2yRXYzadazWEU1oFTdOCFA+8B2rhtLs7WfV7u0EpV0CB2zy7Hr/Ou10WCS0sIcSBvJeSVF67ue/4V51XsdkO50H2iGGc+a+15CkKZPU9SB+VbVuT5+Fz939TWEEtb77Pc4yYWDjPZznNad1cTWjQiBBMfMCv7AjrXOhyNaNt2APu7sGpxmS4jwfljOcjvVKB18tF7kljT2uhHa5Xk5P49qa7sl+RpxzYkOefQ1LDMAqg+pxWYswKxDeAQNx96a13HBIiyNjcwAx3Y9qtX3IaNaR8LvHY155rt4up+JJNEu5JEhkaOe0nHGyRojgexBGffJra8UaybSxvLe2kxefZgYQe8jsVQD8QaoeFraO4tJdRmVhNOyxywzc+W8fGPbBzWy01M32Nm3jMVtFCz7mjUKWA64GKRnKnANTlc8ZzSGCNmG5QfX2pIlkTMQeOpHFQ7pHYKFOT0qfZsmWNiWRvunvUohxHhDgyNtB9B3qkiSrEJGkK8sOmasAA8d/SnsY48RR8nvTRGfMGR1qkIuWykEFq1IT8vGDWXGGPBzirdqXHJzitIksvjrnvV6yY+Yn+8KpKWPbir1nnzE44yK2juZy2JboZH/AR/IVmSbeRitS4HI5/hH8qyrn5WOKcwiZ14ny5XrWTKcnBPNa1y4U/MeKyrgo5wAc9jXMzZFGRmEmFJHfjtUTXDyRlJPvryM1Ko2+Y7cbRx9aqMrHB+8Dzx1xUWY9Bby5YFfdQ31qNJWdN6k7gfu/4VDfIpWBs8bCCSfeor+WCG0hMJXeOpzyKaiJsnluYpgjyBW8ptyq3QH1x7VzmvaLY6jJeak8Uslw0BSCNOFD9c/UnqTV1riGRkuZGURkHzQv94en1qKS+V4zIzkkdVU4VB2AHemk09BXOK1Lw/Np39nOyLcalLG8UcEQ3BQFGOfx6+1czPZG3uRpxQpcuCrsTwjDJ4+oxXrsN5C+yQRgbxtV24LewrH1qz0zVFu3W2kS/jiaNGddis38BDHjr/OtYyezHdHG6CGkkWby2ikOASeuQf/rGuv0iZrbzV3E+aCoJPCE4B/lXKT2eo6ZfTw3VyizCFZ1dRlFUdR+ea62GEfZPOCnAG7GP0rCqrPU6qbTWhv2t5a2WkJLv37JSMLyzkthQB7npWml3GjMJ5089f3kke7LKD615vLot9feILG3tL5bKJwZ5ppP+WaKdo2juxJ4rprXwrp9hDJFe+JryLzpWclJFTdnoCSMk9OfyxU+yVr3IdWzsb0WqSfakiignIlUsCRwB/jU8k6oVNxOiCM56457CuUtfAe+4ktZNent0mbPlRTs8rRAYyXPPX0GOteceIJNR0HxBP4We6Nzb28u2KRurK4yGPuMYqo4dS2ZPtrdD3VdTsQ6brlWABfg9QP8AE1z7eLJLrVksdM0yW+mE2x3K4RCVJ6/h+WaxvDeiSz3Fv5jFyVBOfXFd94ZWG30+RlQKJbiRyygdvlH6KBS5Yx3KbfQhh8PBNUtL6WUXBCN9q3Hh5AQUZQegU5wK6AeWo3qgIJ+bvk1A7F1+V8j0xUCzpFMFztZvyNG5ky5KFHIBGartKA8dvnn7zVWmvwmY3YfK2B61QS63zSSuMZzihMTNOabe4Udc4WpJZiZhDCc7Rt68VkJO27nI4yPrQxlCZCkJnGf7xp36BY3FkRSA9wCe4xxU7SqOc59MVixqy7HUHy3GeeqnuKvQgbRvU7v4QDVK73FoaFtLIW6cetX4pfm+YVBYICnOc1c8n5eO/pWsVoQy3A8bDqKv2uPNTHqKy7aFl75rTtAfMTI/iFbRM5DrggH8B/Ksm8deea07sNkY/uj+VZF1HlTnvUTZUEZNxIZGwtV5VijU/vBuHJwas3CjG2JcMazJrVhy6Z9cGsOpsU72dFwobAY7iM/nWRcX4LMw3YbjC/yrVkto+rIDjpmqFxbrHhkTGKYjCvbq9mwzSLBGvTd1/Cs17m3Ri0tw8jfXrWpcacJ5TJLuOeQKpT6dboEc27Z9QelaJIh3KLXVlKPJCvCWOQ2cg/Wo/tEkcMi5AK9PethdLR4FOAgPPUNx68U7+ywbcsIvMUDqB1FPS4rM5r+0Hjj3k5IzjcelQHV18hlmIcHnDHmukg0u3nfZCpCghiNhI9+vFVNQ8Ei93CJEAbuTjNNSjsxWkc5NqCX2rafCF3q4aJlBz8u0kfqK7XTczackSAllO0+tchffDzUBKn2F7zz1GUkhYBUPrkkYq/Y6N8T1sx9mOnQzZOS8OGPbkZx+VTUgp7M2pVORaoveJNP177Y2ojQJbqy+zCHYrCTbg5zjAPPXvXKXWo62lm1va20cXkzhjEFKyq3vv6fWu3K/EOa7spk02C2mtUKTSS3WY5lIwU2gdCeeemKi0nwbqsG671B2up2Ty0togAkabiQoZuSBk4z0HFVTfKrSM6iu7xOd1LxlLazWd5IjtcR8OT1GewYYrm/EGuWmr+KZdZkQpFNGgGecMvWvWV+HEU9xNPcCIxSDasQU8D3Pr9KfbfDLSpWcT2JUK23LEAOPUYquamhJTuU/Bni3R0uoBbXcMkhUYTeNw7dK6VbawsbrydK1yeBrrzLpbSSFZI3PVlQnGGzzjNZFx8KtGkjDJp8EUsbblZGZTj6jkH6U0eBYZrdJN+p3ZgfEcdxM8YUEYJXPJ64ySKwaje6ZrzN7o2tD1lNTs3lheOXy3MbPDnaT9DyPcHkHNT3IdvUUun+GodPs/sNiyWtsCGCxDDA9TuPfPr1rXe3RV2sM4HpWUrX0C3c5za6uZNm+RhhcjOPerNusv/LQlgx6OK1I4SeYYz7setOtowJCZRwvNNXArm0U7GVRkHH1q6LPdDGSjHqTVhIo1jB3fKGz9alluWWHcsT7R/dG4n8KrluK5TihG1oyvCncM1ZtYYy3mSnHPApYw5cB4scZVsfzqxbsi8MDuJ64qkIt25iXhTnPtinxyl5CqsFA4yR1qEliCU4+oqWzQfdK1oiWXbdju2MPmHOR0NXYP9cn+8KhiUBcVYgB81fqK1SM2Q3Uh39P4R0+lUZPm61oSxsTkIx+UdvaqskDn/lm35VlJNlxaMu6tVblW2ms6e1lAxncK2riGXH+rYe+KoOJgeFcfh1rOxoZEtvJ2Q5pv2Lcu4r+FajefuH7tsd+KuC2fywfLb8qQHMfYUyQY+fpTTppLZKDFdMYDg7Yj+VVTbybv9W2PoaQzJ/s+JVDMqKAOARVWWFXYKynGcjmuja13kHy2468UjWS9RExP+7QBgx2QeP5Bz65pv2Vo1KgZPrmtprZ14Ebj2xUcdrKzco+P92pGYcVrI9wZFmlAyCEBAHH9DWmjCNo4nYLK4JVem6tCO1MZ4icj/d5q6sB2jZEf++aaAybZkvZDCqZKDLuGBCH0q5FYorbgTv7nOa0IrV1GBFtz/dXFSLbEZ3I/wCVOwrlWKEDgqfrTmhPbAq15Ug6Rv8AlUWyUceU+T7GgLlUQXWeLlSOgBFIyXX8TAqP4c8GrBhugci3Yj6VC63a9bdvyqbDuV5AkfJRs+lNkljGCUyfSpWaQH95A/sCDTSkkgxHA2PXb0osFyJJ4/4tq+2aejW8rEcGmfYlLfNHIM99pqxFaqgysbZ/3aLILslWNcAYGBUmw9hTAJF48tuPapAJP+eT/lViE2jp2PWnRxhVxnPoKkVJBx5bY+lTLbyMc7G/I01qSyPZgKBUsKYbdtxU0cDd42/KrKxN/wA82x9K2SM20MizVmAZlT1yP501YW7I35VYhiYSLlG4I7VqkZyaP//Z";
+imgErizo.onload = () => { if (erizoPendiente){ erizoPendiente = false; setSource(drawErizo); } };
+function drawErizo(g){
+  if (imgErizo.complete && imgErizo.naturalWidth){
+    g.drawImage(imgErizo, 0, 0, SIZE, SIZE);
+  } else {
+    erizoPendiente = true;          // todavia no cargo; se redibuja solo
+    g.fillStyle = '#111'; g.fillRect(0,0,SIZE,SIZE);
+  }
+}
+function setSource(fn){
+  xOrig.setTransform(1,0,0,1,0,0);
+  xOrig.clearRect(0,0,SIZE,SIZE);
+  fn(xOrig);
+  ingest();
+}
+function loadFile(file){
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    // recorte central cuadrado, para no deformar
+    const s = Math.min(img.width, img.height);
+    xOrig.setTransform(1,0,0,1,0,0);
+    xOrig.fillStyle = '#000'; xOrig.fillRect(0,0,SIZE,SIZE);
+    xOrig.drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, SIZE, SIZE);
+    URL.revokeObjectURL(url);
+    ingest();
+  };
+  img.onerror = () => { shout('✗ no pude leer esa imagen'); URL.revokeObjectURL(url); };
+  img.src = url;
+}
+
+/* ── desarmar: la foto entera a coeficientes, una sola vez ─────────────── */
+const blk = new Float64Array(64), out = new Float64Array(64);
+function ingest(){
+  try {
+    orig = xOrig.getImageData(0,0,SIZE,SIZE).data;
+  } catch (e) {
+    shout('✗ no puedo leer los píxeles de esa imagen: ' + e.name
+        + '\n  Pasa al abrir el archivo con doble clic (file://). Servido por http/https anda.');
+    return;
+  }
+  coefs = new Float32Array(3 * NB * NB * 64);
+  for (let ch = 0; ch < 3; ch++)
+    for (let by = 0; by < NB; by++)
+      for (let bx = 0; bx < NB; bx++){
+        for (let y = 0; y < B; y++)
+          for (let x = 0; x < B; x++)
+            blk[x*B + y] = orig[(((by*B + y)*SIZE) + (bx*B + x))*4 + ch] - 128;
+        dct8(blk, out);
+        const base = ((ch*NB + by)*NB + bx) * 64;
+        for (let i = 0; i < 64; i++) coefs[base + i] = out[i];
+      }
+  // cuánta energía vive en las 16 primeras del zigzag — propiedad de la foto, no del slider
+  let low = 0, tot = 0;
+  for (let ch = 0; ch < 3; ch++)
+    for (let bi = 0; bi < NB*NB; bi++){
+      const base = (ch*NB*NB + bi)*64;
+      for (let j = 1; j < 64; j++){        // sin el gris promedio, que siempre domina y taparía todo
+        const e = coefs[base + ZIGZAG[j]] ** 2;
+        tot += e;
+        if (j < 16) low += e;
+      }
+    }
+  concentracion = tot > 0 ? low/tot*100 : 100;
+
+  sel = null;
+  render();
+}
+
+/* ── máscaras ──────────────────────────────────────────────────────────── */
+function rebuildGlobalMask(){
+  maskGlobal.fill(0);
+  const order = (mode === 'rnd') ? rndOrder : ZIGZAG;
+  for (let k = 0; k < nKeep; k++) maskGlobal[order[k]] = 1;
+}
+function shuffleRnd(){
+  rndOrder = ZIGZAG.slice();
+  for (let i = 63; i > 0; i--){
+    const j = Math.floor(Math.random() * (i+1));
+    [rndOrder[i], rndOrder[j]] = [rndOrder[j], rndOrder[i]];
+  }
+}
+
+/* ── armar de nuevo ────────────────────────────────────────────────────── */
+const kept = new Float64Array(64), rec = new Float64Array(64);
+const idxBuf = new Int32Array(64), maskEne = new Uint8Array(64);
+
+// las n posiciones de mayor módulo de un cuadradito, sin crear basura por bloque
+function topN(base, n, dst){
+  if (n >= 64){ dst.fill(1); return; }          // no hay nada que elegir: están todas
+  if (n <= 0){ dst.fill(0); return; }
+  for (let i = 0; i < 64; i++) idxBuf[i] = i;
+  const arr = idxBuf;
+  // selección parcial: n pasadas bastan y n suele ser chico
+  for (let k = 0; k < n; k++){
+    let best = k;
+    for (let i = k+1; i < 64; i++)
+      if (Math.abs(coefs[base + arr[i]]) > Math.abs(coefs[base + arr[best]])) best = i;
+    const t = arr[k]; arr[k] = arr[best]; arr[best] = t;
+  }
+  dst.fill(0);
+  for (let k = 0; k < n; k++) dst[arr[k]] = 1;
+}
+function render(){
+  if (!coefs) return;
+  if (mode !== 'man' && mode !== 'ene') rebuildGlobalMask();
+
+  const recImg = xRec.createImageData(SIZE,SIZE);
+  const errImg = xErr.createImageData(SIZE,SIZE);
+  const amp = +$('errAmp').textContent;
+  let sse = 0, sae = 0, n = 0, hits = 0, totalBlocks = 0;
+  usage.fill(0);
+
+  for (let ch = 0; ch < 3; ch++)
+    for (let by = 0; by < NB; by++)
+      for (let bx = 0; bx < NB; bx++){
+        const base = ((ch*NB + by)*NB + bx) * 64;
+        let mask = maskGlobal;
+
+        if (mode === 'ene'){                          // por bloque: las nKeep más gordas
+          topN(base, nKeep, maskEne);
+          mask = maskEne;
+          for (let i = 0; i < 64; i++) if (mask[i]) usage[i]++;
+          // ¿cuántas de las elegidas hubiera acertado el zigzag?
+          for (let k = 0; k < nKeep; k++) if (mask[ZIGZAG[k]]) hits++;
+          totalBlocks++;
+        }
+
+        for (let i = 0; i < 64; i++) kept[i] = mask[i] ? coefs[base+i] : 0;
+        idct8(kept, rec);
+
+        for (let y = 0; y < B; y++)
+          for (let x = 0; x < B; x++){
+            const px = (((by*B + y)*SIZE) + (bx*B + x))*4 + ch;
+            let v = rec[x*B + y] + 128;
+            if (v < 0) v = 0; else if (v > 255) v = 255;
+            recImg.data[px] = v;
+            const d = v - orig[px];
+            sse += d*d; sae += Math.abs(d); n++;
+            let e = 128 + d*amp;
+            errImg.data[px] = e < 0 ? 0 : (e > 255 ? 255 : e);
+          }
+      }
+  for (let p = 3; p < recImg.data.length; p += 4){ recImg.data[p] = 255; errImg.data[p] = 255; }
+  xRec.putImageData(recImg,0,0);
+  xErr.putImageData(errImg,0,0);
+
+  if (mode === 'ene' && totalBlocks && nKeep > 0) {
+    for (let i = 0; i < 64; i++) usage[i] = usage[i] / totalBlocks * 100;
+    agreement = hits / (totalBlocks * nKeep) * 100;
+  } else agreement = 0;                    // con cero ondas no hay coincidencia que medir
+
+  const mse = sse / n;
+  const count = countKept();
+  $('sKept').textContent = count + ' / 64';
+  $('sData').textContent = (count/64*100).toFixed(1).replace('.',',') + ' %';
+  $('sMae').textContent = (sae/n).toFixed(2).replace('.',',');
+  $('sPsnr').textContent = mse < 1e-9 ? '∞ dB' : (10*Math.log10(255*255/mse)).toFixed(1).replace('.',',') + ' dB';
+  $('sConc').textContent = concentracion.toFixed(1).replace('.',',') + ' %';
+
+  paintGrid();
+  paintLupa();
+  paintNotes(count);
+}
+function countKept(){
+  if (mode === 'ene') return nKeep;
+  let c = 0; for (let i = 0; i < 64; i++) c += maskGlobal[i];
+  return c;
+}
+
+/* ── carteles ──────────────────────────────────────────────────────────── */
+function paintNotes(count){
+  const mn = $('modeNote'), cn = $('costNote');
+  if (mode === 'zig')
+    mn.textContent = 'Las primeras ' + count + ' del recorrido en zigzag: de la esquina de arriba a la izquierda hacia afuera, por diagonales.';
+  else if (mode === 'rnd')
+    mn.innerHTML = count + ' posiciones sorteadas, las mismas para toda la foto. <a href="#" id="reshuffle" style="color:var(--hot)">sortear de nuevo</a>';
+  else if (mode === 'ene')
+    mn.textContent = 'Las ' + count + ' más gordas de cada cuadradito, elegidas una por una. Es lo mejor que se puede hacer con esa cantidad.';
+  else
+    mn.textContent = count + ' ondas elegidas a mano. Las mismas para toda la foto.';
+
+  const rs = $('reshuffle');
+  if (rs) rs.onclick = e => { e.preventDefault(); shuffleRnd(); render(); };
+
+  const blocks = NB*NB*3;
+  if (count === 0){
+    cn.innerHTML = '<strong>Cero ondas.</strong> No queda nada que sumar, así que cada cuadradito '
+      + 'sale en el gris del medio. Todo lo que ves en una foto está en las 64.';
+    return;
+  }
+  if (mode === 'ene'){
+    const dataBits  = nKeep * blocks * 8;     // ~1 byte por onda, tras cuantizar
+    const mapBits   = 64 * blocks;            // hay que anotar cuáles guardaste
+    cn.innerHTML = '<strong>El costo de elegir bien.</strong> Este modo elige distinto en cada cuadradito, '
+      + 'así que el archivo tiene que <em>decir</em> cuáles guardó: 64 bits por cuadradito. '
+      + 'Con ' + nKeep + ' onda' + (nKeep===1?'':'s') + ' por cuadradito, la lista pesa <strong>'
+      + (mapBits/dataBits*100).toFixed(0) + ' %</strong> de lo que pesan las ondas'
+      + (mapBits > dataBits ? ' — o sea que decir cuáles guardaste sale <strong>más caro que guardarlas</strong>.' : '.')
+      + '<br><span class="dim">Y sin embargo el zigzag acierta: de las que este modo eligió, el zigzag hubiera agarrado el <strong>'
+      + agreement.toFixed(1).replace('.',',') + ' %</strong>. Por eso el estándar usa el criterio gratis y no el óptimo.</span>'
+      + '<br><span class="dim" style="font-size:.85em">(Estimación de orden de magnitud, contando un byte por onda y sin comprimir la lista. El punto no es el número exacto: es que el costo no es despreciable.)</span>';
+  } else {
+    cn.innerHTML = '<strong>Por qué el zigzag sale gratis.</strong> Guarda siempre las mismas posiciones en el mismo orden, '
+      + 'así que el que abre el archivo ya sabe cuáles son: alcanza con decirle cuántas. '
+      + 'Cero bytes de explicación. Apretá <em>Por tamaño</em> para ver qué cuesta el criterio que elige mejor.';
+  }
+}
+
+/* ── la grilla de las 64 ───────────────────────────────────────────────── */
+const cells = [];
+(function buildGrid(){
+  const g = $('grid');
+  for (let u = 0; u < B; u++)
+    for (let v = 0; v < B; v++){
+      const i = u*B + v;
+      const d = document.createElement('div');
+      d.className = 'cell';
+      d.title = 'onda ' + u + ',' + v;
+      const c = document.createElement('canvas'); c.width = B; c.height = B;
+      const cx = c.getContext('2d');
+      const img = cx.createImageData(B,B);
+      for (let x = 0; x < B; x++)
+        for (let y = 0; y < B; y++){
+          const val = M[u][x] * M[v][y];
+          // las bases llegan como mucho a ±1/4: por 510 usan todo el rango de gris,
+          // si no las 64 ondas se ven lavadas y son lo que hay que mirar
+          const g8 = Math.round(128 + val * 510);
+          const p = (y*B + x)*4;
+          img.data[p] = img.data[p+1] = img.data[p+2] = g8 < 0 ? 0 : (g8 > 255 ? 255 : g8);
+          img.data[p+3] = 255;
+        }
+      cx.putImageData(img,0,0);
+      d.appendChild(c);
+      const heat = document.createElement('div'); heat.className = 'heat'; d.appendChild(heat);
+      const num = document.createElement('div'); num.className = 'num'; d.appendChild(num);
+      d.onclick = () => {
+        if (mode !== 'man'){
+          // el modo energía no tiene máscara global: se parte del zigzag para poder editar
+          if (mode === 'ene'){ maskGlobal.fill(0); for (let k = 0; k < nKeep; k++) maskGlobal[ZIGZAG[k]] = 1; }
+          else rebuildGlobalMask();
+          setMode('man');
+        }
+        maskGlobal[i] ^= 1;
+        nKeep = countKept();
+        $('nSlider').value = nKeep; $('nLabel').textContent = nKeep;
+        render();
+      };
+      g.appendChild(d);
+      cells[i] = {el:d, num:num, heat:heat};
+    }
+})();
+
+function paintGrid(){
+  const base = sel ? ((0*NB + sel.by)*NB + sel.bx) * 64 : -1;   // canal rojo, para el número
+  for (let i = 0; i < 64; i++){
+    const c = cells[i];
+    if (mode === 'ene'){
+      c.el.classList.remove('off','on');
+      c.heat.style.background = 'rgba(224,130,74,' + (usage[i]/100*0.75).toFixed(3) + ')';
+      c.num.textContent = usage[i] >= 0.5 ? Math.round(usage[i]) + '%' : '';
+    } else {
+      c.heat.style.background = 'transparent';
+      c.el.classList.toggle('off', !maskGlobal[i]);
+      c.el.classList.toggle('on', !!maskGlobal[i]);
+      c.num.textContent = (base >= 0) ? Math.round(coefs[base + i]) : '';
+    }
+  }
+  $('gridNote').textContent = (mode === 'ene')
+    ? 'en qué porcentaje de los cuadraditos quedó elegida cada onda'
+    : (sel ? 'los números son cuánto pesa cada onda en el cuadradito elegido (canal rojo)'
+           : 'elegí un cuadradito en la foto para ver cuánto pesa cada onda ahí');
+}
+
+/* ── la lupa ───────────────────────────────────────────────────────────── */
+// La mirilla se dibuja SOBRE el original, así que antes hay que reponer los píxeles limpios.
+// (Los datos ya viven en `orig`, leídos una sola vez en ingest: el marco no puede contaminarlos.)
+function markSel(){
+  if (!orig) return;
+  xOrig.putImageData(new ImageData(orig, SIZE, SIZE), 0, 0);
+  if (!sel) return;
+  const x = sel.bx*B, y = sel.by*B;
+  xOrig.lineWidth = 3; xOrig.strokeStyle = 'rgba(0,0,0,.75)';
+  xOrig.strokeRect(x - 1.5, y - 1.5, B + 3, B + 3);
+  xOrig.lineWidth = 1.5; xOrig.strokeStyle = '#e0824a';
+  xOrig.strokeRect(x - 1.5, y - 1.5, B + 3, B + 3);
+}
+const xLO = $('cLupaOrig').getContext('2d'), xLR = $('cLupaRec').getContext('2d');
+function paintLupa(){
+  if (!sel){
+    xLO.clearRect(0,0,B,B); xLR.clearRect(0,0,B,B);
+    $('lupaPos').textContent = 'ningún cuadradito elegido';
+    return;
+  }
+  const io = xLO.createImageData(B,B), ir = xLR.createImageData(B,B);
+  const k = Math.min(playK, 64);
+  for (let ch = 0; ch < 3; ch++){
+    const base = ((ch*NB + sel.by)*NB + sel.bx) * 64;
+    let mask;
+    if (mode === 'ene'){ topN(base, nKeep, maskEne); mask = maskEne; }
+    else mask = maskGlobal;
+
+    for (let i = 0; i < 64; i++) kept[i] = 0;
+    let taken = 0;
+    for (let j = 0; j < 64; j++){                 // orden de llegada = zigzag
+      const idx = ZIGZAG[j];
+      if (!mask[idx]) continue;
+      if (taken >= k) break;
+      kept[idx] = coefs[base + idx]; taken++;
+    }
+    idct8(kept, rec);
+    for (let y = 0; y < B; y++)
+      for (let x = 0; x < B; x++){
+        const p = (y*B + x)*4;
+        io.data[p+ch] = orig[(((sel.by*B + y)*SIZE) + (sel.bx*B + x))*4 + ch];
+        let v = rec[x*B + y] + 128;
+        ir.data[p+ch] = v < 0 ? 0 : (v > 255 ? 255 : v);
+      }
+  }
+  for (let p = 3; p < io.data.length; p += 4){ io.data[p] = 255; ir.data[p] = 255; }
+  xLO.putImageData(io,0,0); xLR.putImageData(ir,0,0);
+  $('lupaPos').textContent = 'cuadradito ' + sel.bx + ',' + sel.by
+    + '  ·  píxeles ' + (sel.bx*B) + '–' + (sel.bx*B+7) + ' × ' + (sel.by*B) + '–' + (sel.by*B+7);
+  $('lupaStep').textContent = (playK >= 64 || playK >= countKept())
+    ? 'sumando todas las que están prendidas'
+    : 'sumando las primeras ' + playK + ' de las prendidas';
+}
+cOrig.addEventListener('click', e => {
+  const r = cOrig.getBoundingClientRect();
+  const x = (e.clientX - r.left) * (SIZE / r.width);
+  const y = (e.clientY - r.top)  * (SIZE / r.height);
+  sel = { bx: Math.max(0, Math.min(NB-1, Math.floor(x/B))),
+          by: Math.max(0, Math.min(NB-1, Math.floor(y/B))) };
+  playK = 64;
+  markSel(); paintGrid(); paintLupa();
+});
+
+/* ── controles ─────────────────────────────────────────────────────────── */
+function setMode(m){
+  mode = m;
+  for (const [id,mm] of [['mZig','zig'],['mEne','ene'],['mRnd','rnd'],['mMan','man']]){
+    $(id).classList.toggle('on', mode === mm);
+    $(id).disabled = (mm === 'man' && mode !== 'man');
+  }
+}
+$('mZig').onclick = () => { setMode('zig'); render(); };
+$('mEne').onclick = () => { setMode('ene'); render(); };
+$('mRnd').onclick = () => { shuffleRnd(); setMode('rnd'); render(); };
+$('nSlider').oninput = e => {
+  nKeep = +e.target.value;
+  $('nLabel').textContent = nKeep;
+  if (mode === 'man') setMode('zig');
+  playK = 64;
+  render();
+};
+for (const [id,fn] of [['bSrcCarta',drawCarta],['bSrcEscena',drawEscena],['bSrcRuido',drawRuido],['bSrcErizo',drawErizo]]){
+  $(id).onclick = () => {
+    for (const b of ['bSrcCarta','bSrcEscena','bSrcRuido','bSrcErizo']) $(b).classList.toggle('on', b === id);
+    setSource(fn);
+  };
+}
+$('bSrcFile').onclick = () => $('fileIn').click();
+$('fileIn').onchange = e => {
+  if (!e.target.files || !e.target.files[0]) return;
+  for (const b of ['bSrcCarta','bSrcEscena','bSrcRuido','bSrcErizo']) $(b).classList.remove('on');
+  loadFile(e.target.files[0]);
+};
+$('bAll').onclick = () => { playK = 64; paintLupa(); };
+$('bPlay').onclick = () => {
+  if (!sel){ $('lupaStep').textContent = 'elegí un cuadradito primero (clic en la foto)'; return; }
+  if (playTimer){ clearInterval(playTimer); playTimer = null; $('bPlay').textContent = 'Sumar de a una ▸'; return; }
+  playK = 0; $('bPlay').textContent = 'Parar ■';
+  playTimer = setInterval(() => {
+    playK++;
+    paintLupa();
+    if (playK >= Math.min(64, countKept())){
+      clearInterval(playTimer); playTimer = null; $('bPlay').textContent = 'Sumar de a una ▸';
+    }
+  }, 110);
+};
+
+/* ── banco de pruebas ──────────────────────────────────────────────────── */
+function runTests(){
+  const T = [];
+  const ok = (name, cond, detail) => T.push({name, pass: !!cond, detail: detail || ''});
+  // dos de los tests tocan el estado del aparato: se guarda entero y se repone al final,
+  // porque un banco de pruebas que deja la cosa distinta de como la encontró miente después
+  const guardado = {mode, nKeep, mask: maskGlobal.slice(), orden: rndOrder.slice(), sel, playK};
+  // Math.imul y no `*`: el producto de 32 bits pasa 2^53 y el enmascarado se quedaría
+  // justo con los bits que la coma flotante rompió — los tests recibirían datos degenerados.
+  const rnd = (seed => () => (seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff) / 0x7fffffff)(42);
+
+  // 1. La DCT del código contra la fórmula directa, escrita aparte y sin reusar M.
+  {
+    const f = new Float64Array(64); for (let i = 0; i < 64; i++) f[i] = rnd()*255 - 128;
+    const mine = new Float64Array(64); dct8(f, mine);
+    let worst = 0;
+    for (let u = 0; u < 8; u++)
+      for (let v = 0; v < 8; v++){
+        let s = 0;
+        for (let x = 0; x < 8; x++)
+          for (let y = 0; y < 8; y++)
+            s += f[x*8+y]
+               * Math.cos((2*x+1)*u*Math.PI/16)
+               * Math.cos((2*y+1)*v*Math.PI/16);
+        s *= (u===0 ? Math.SQRT1_2 : 1) * (v===0 ? Math.SQRT1_2 : 1) / 4;
+        worst = Math.max(worst, Math.abs(s - mine[u*8+v]));
+      }
+    ok('la transformada coincide con la fórmula del estándar, escrita aparte', worst < 1e-9,
+       'peor diferencia: ' + worst.toExponential(2));
+  }
+
+  // 2. Reversible: armar lo desarmado devuelve el original. Es el par de la sala.
+  {
+    let worst = 0;
+    for (let t = 0; t < 40; t++){
+      const f = new Float64Array(64), c = new Float64Array(64), b = new Float64Array(64);
+      for (let i = 0; i < 64; i++) f[i] = rnd()*255 - 128;
+      dct8(f,c); idct8(c,b);
+      for (let i = 0; i < 64; i++) worst = Math.max(worst, Math.abs(f[i]-b[i]));
+    }
+    ok('con las 64 ondas se vuelve al cuadradito exacto (40 cuadraditos al azar)', worst < 1e-9,
+       'peor diferencia: ' + worst.toExponential(2) + ' sobre 255 niveles');
+  }
+
+  // 3. Parseval: la energía no se crea ni se destruye al cambiar de idioma.
+  {
+    const f = new Float64Array(64), c = new Float64Array(64);
+    for (let i = 0; i < 64; i++) f[i] = rnd()*255 - 128;
+    dct8(f,c);
+    let e1 = 0, e2 = 0;
+    for (let i = 0; i < 64; i++){ e1 += f[i]*f[i]; e2 += c[i]*c[i]; }
+    ok('la energía se conserva (Parseval)', Math.abs(e1-e2)/e1 < 1e-12,
+       'píxeles ' + e1.toFixed(3) + ' · ondas ' + e2.toFixed(3));
+  }
+
+  // 4. Un cuadradito de un solo gris usa una sola onda. Valor esperado: la definición del DC.
+  {
+    const f = new Float64Array(64).fill(50), c = new Float64Array(64);
+    dct8(f,c);
+    let restoMax = 0;
+    for (let i = 1; i < 64; i++) restoMax = Math.max(restoMax, Math.abs(c[i]));
+    ok('un cuadradito liso da una sola onda, y vale la media × 8',
+       Math.abs(c[0] - 50*8) < 1e-9 && restoMax < 1e-9,
+       'primera onda: ' + c[0].toFixed(6) + ' (esperado 400) · resto máx: ' + restoMax.toExponential(2));
+  }
+
+  // 5. Las 64 bases son ortonormales entre sí: son un idioma sin redundancia.
+  {
+    let worstOff = 0, worstDiag = 0;
+    for (let a = 0; a < 64; a++)
+      for (let b2 = a; b2 < 64; b2++){
+        const ua = a>>3, va = a&7, ub = b2>>3, vb = b2&7;
+        let s = 0;
+        for (let x = 0; x < 8; x++)
+          for (let y = 0; y < 8; y++)
+            s += M[ua][x]*M[va][y] * M[ub][x]*M[vb][y];
+        if (a === b2) worstDiag = Math.max(worstDiag, Math.abs(s - 1));
+        else          worstOff  = Math.max(worstOff,  Math.abs(s));
+      }
+    ok('las 64 ondas son independientes y de tamaño 1 (base ortonormal)',
+       worstOff < 1e-12 && worstDiag < 1e-12,
+       'peor cruce: ' + worstOff.toExponential(2) + ' · peor norma: ' + worstDiag.toExponential(2));
+  }
+
+  // 6. La tabla de zigzag, escrita a mano, contra la generada desde la definición geométrica:
+  //    diagonales u+v crecientes, las pares recorridas al revés. Compara la constante contra
+  //    su definición, no contra sí misma — si estuviera mal, el aparato mentiría en silencio.
+  {
+    const canon = [];
+    for (let d = 0; d < 15; d++){
+      const tramo = [];
+      for (let u = 0; u < 8; u++){ const v = d - u; if (v >= 0 && v < 8) tramo.push(u*8 + v); }
+      if (d % 2 === 0) tramo.reverse();
+      canon.push(...tramo);
+    }
+    let iguales = canon.length === ZIGZAG.length;
+    let primera = -1;
+    for (let i = 0; i < canon.length && iguales; i++)
+      if (canon[i] !== ZIGZAG[i]){ iguales = false; primera = i; }
+    ok('la tabla de zigzag escrita a mano es la del estándar (generada acá desde su definición)',
+       iguales, iguales ? 'las 64 posiciones coinciden'
+                        : 'se separan en la posición ' + primera + ': tabla ' + ZIGZAG[primera] + ' vs canónica ' + canon[primera]);
+  }
+
+  // 7. Tirar ondas nunca puede mejorar: el error tiene que crecer al bajar el slider.
+  //    (Test que puede fallar: si la máscara se aplicara mal, esto se rompe.)
+  {
+    const f = new Float64Array(64), c = new Float64Array(64), k = new Float64Array(64), b = new Float64Array(64);
+    for (let i = 0; i < 64; i++) f[i] = rnd()*255 - 128;
+    dct8(f,c);
+    let prevErr = -1, monot = true, detail = [];
+    for (const n of [64,48,32,16,8,4,1]){
+      k.fill(0);
+      for (let j = 0; j < n; j++) k[ZIGZAG[j]] = c[ZIGZAG[j]];
+      idct8(k,b);
+      let e = 0; for (let i = 0; i < 64; i++) e += (b[i]-f[i])*(b[i]-f[i]);
+      e = Math.sqrt(e/64);
+      if (prevErr >= 0 && e < prevErr - 1e-9) monot = false;
+      prevErr = e; detail.push(n + '→' + e.toFixed(1));
+    }
+    ok('sacar ondas siempre empeora, nunca mejora', monot, detail.join('  '));
+  }
+
+  // 8. Elegir por tamaño no puede salir peor que elegir por frecuencia, nunca, para ningún N.
+  //    (Teorema: en una base ortonormal el error² es la suma de lo descartado² — Parseval otra vez.
+  //     Si topN o la máscara estuvieran mal, esto se rompe.)
+  {
+    if (!coefs){ ok('elegir por tamaño nunca sale peor que por frecuencia', false, 'no hay foto cargada'); }
+    else {
+      let peor = 0, casos = 0, mejoras = 0;
+      const mE = new Uint8Array(64);
+      for (const bi of [0, 137, 528, 700, 1023])
+        for (const n of [1,3,6,12,24,48]){
+          const base = (0*NB*NB + bi)*64;
+          topN(base, n, mE);
+          let eZ = 0, eE = 0;
+          for (let i = 0; i < 64; i++){
+            const c2 = coefs[base+i] ** 2;
+            if (!mE[i]) eE += c2;
+          }
+          for (let j = n; j < 64; j++) eZ += coefs[base + ZIGZAG[j]] ** 2;
+          peor = Math.max(peor, eE - eZ);            // tiene que ser ≤ 0
+          if (eE < eZ - 1e-6) mejoras++;
+          casos++;
+        }
+      ok('elegir por tamaño nunca sale peor que por frecuencia (' + casos + ' combinaciones)',
+         peor <= 1e-6,
+         'peor exceso: ' + peor.toExponential(2) + ' · gana en ' + mejoras + '/' + casos + ' casos');
+    }
+  }
+
+  // 9. Los tres modos tiran la misma cantidad. Es la premisa entera del conmutador:
+  //    si los números se movieran, el aparato no probaría nada.
+  {
+    nKeep = 6;
+    setMode('zig'); rebuildGlobalMask(); const a = countKept();
+    setMode('rnd'); shuffleRnd(); rebuildGlobalMask(); const b2 = countKept();
+    // para el tercero no vale preguntarle a countKept(), que devuelve la variable y no puede
+    // fallar: se cuentan las ondas que la máscara realmente prende sobre cuadraditos de verdad
+    let c2 = -1;
+    if (coefs){
+      const mE = new Uint8Array(64); c2 = 6;
+      for (const bi of [0, 137, 528, 1023]){
+        topN((0*NB*NB + bi)*64, 6, mE);
+        let cuenta = 0; for (let i = 0; i < 64; i++) cuenta += mE[i];
+        if (cuenta !== 6) c2 = cuenta;
+      }
+    }
+    ok('con el slider en 6, los tres modos guardan 6 ondas — el conmutador no mueve ningún número',
+       a === 6 && b2 === 6 && c2 === 6, 'zigzag ' + a + ' · azar ' + b2 + ' · tamaño ' + c2);
+  }
+
+  // 10. El azar sortea de verdad: dos sorteos no pueden dar el mismo comienzo.
+  {
+    shuffleRnd(); const a = rndOrder.slice(0,10).join(',');
+    shuffleRnd(); const b2 = rndOrder.slice(0,10).join(',');
+    ok('sortear de nuevo cambia las posiciones elegidas', a !== b2, a + '  ≠  ' + b2);
+  }
+
+  // 11. La imagen cargada tiene el tamaño que el resto del código supone.
+  {
+    ok('la foto entra justa en cuadraditos de 8×8 sin sobras',
+       SIZE % B === 0 && NB === SIZE/B && (!coefs || coefs.length === 3*NB*NB*64),
+       SIZE + ' px ÷ 8 = ' + NB + ' cuadraditos por lado · ' + (NB*NB) + ' en total');
+  }
+
+  // el aparato vuelve exactamente a como estaba antes de correr esto
+  mode = guardado.mode; nKeep = guardado.nKeep; sel = guardado.sel; playK = guardado.playK;
+  maskGlobal = guardado.mask; rndOrder = guardado.orden;
+  setMode(guardado.mode);
+  $('nSlider').value = nKeep; $('nLabel').textContent = nKeep;
+  render(); markSel();
+
+  // salida
+  const pass = T.filter(t => t.pass).length;
+  let html = '<div class="panel"><p class="mono" style="margin-bottom:.8rem">'
+    + (pass === T.length
+        ? '<span class="pass">' + pass + ' / ' + T.length + ' en verde</span>'
+        : '<span class="fail">' + (T.length-pass) + ' EN ROJO</span> de ' + T.length)
+    + '</p><table><tr><th>qué</th><th>cómo salió</th></tr>';
+  for (const t of T)
+    html += '<tr><td>' + (t.pass ? '<span class="pass">✓</span> ' : '<span class="fail">✗</span> ')
+          + t.name + '</td><td class="mono dim">' + t.detail + '</td></tr>';
+  html += '</table></div>';
+  $('testOut').innerHTML = html;
+  return {pass, total: T.length, T};
+}
+$('bTest').onclick = runTests;
+window.__runTests = runTests;
+
+/* ── arranque ──────────────────────────────────────────────────────────── */
+setSource(drawCarta);
+</script>
+</body>
+</html>
